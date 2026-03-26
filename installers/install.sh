@@ -217,11 +217,10 @@ _handoff_to_user() {
         exit 1
     fi
 
-    echo ""
+    tui_clear
     log_success "准备就绪！请复制以下命令切换用户并继续安装："
     echo ""
-    printf '  \033[1;32msu - %s\033[0m\n' "$target_user"
-    printf '  \033[1;32mbash %s\033[0m\n' "$target_script"
+    printf '  \033[1;32msu - %s -c "bash %s"\033[0m\n' "$target_user" "$target_script"
     echo ""
 
     exit 0
