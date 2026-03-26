@@ -72,36 +72,36 @@ run_step_disk() {
 # ============================================================================
 
 main() {
-    log_info "Starman 安装脚本已启动"
+    # Banner
+    if command -v ui_banner_starman &>/dev/null; then
+        ui_banner_starman
+    fi
+
+    # 基本信息
+    log_info "用户：$(whoami)"
     log_info "工作目录：$(pwd)"
 
-    # 环境检测阶段
-    log_info "正在进行环境检测..."
-
-    # 检测是否为 root 用户（root 用户需要特殊处理）
-    if [ "$(id -u)" -eq 0 ]; then
-        log_warn "检测到 root 用户运行，需要切换到非 root 用户"
-        # TODO: 调用 TUI 菜单引导用户创建或切换用户
-        # 此功能由 installer-user-prompt change 实现
+    local os_type="unknown"
+    if command -v detect_os &>/dev/null; then
+        os_type="$(detect_os)"
     fi
+    log_info "操作系统：$os_type"
+    log_info "架构：$(uname -m)"
+    log_info "内核：$(uname -r)"
+    echo ""
 
     # 检测 sudo 权限
     require_sudo
 
-    # 检测操作系统
-    local os_type
-    os_type="$(detect_os)"
-    log_info "检测到操作系统：$os_type"
-
     # 执行安装步骤
-    echo ""
     log_info "开始执行安装步骤..."
+    echo ""
 
     run_step_packages
     run_step_disk
 
     echo ""
-    log_success "Starman 安装脚本执行完成"
+    log_success "Starman 系统配置完成"
 }
 
 # 支持被 source 时不执行 main，仅供函数定义

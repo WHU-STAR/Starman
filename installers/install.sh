@@ -271,10 +271,10 @@ guide_root_user() {
         printf '  - 后续运维需要在 root 和非 root 用户之间切换\n\n'
         printf '请选择以下操作：\n\n'
 
-        # 创建 TUI 菜单
+        # 创建 TUI 菜单（单选：全部不预勾选，通过光标位置选择）
         tui_menu_create "选择操作"
         local menu_id="$TUI_LAST_MENU_ID"
-        tui_menu_add "$menu_id" "新建 sudo 用户并迁移项目" "create_user" true
+        tui_menu_add "$menu_id" "新建 sudo 用户并迁移项目" "create_user" false
         tui_menu_add "$menu_id" "切换到已有用户" "switch_user" false
         tui_menu_add "$menu_id" "取消安装" "cancel" false
 
@@ -282,20 +282,31 @@ guide_root_user() {
         tui_menu_run "$menu_id"
         local result="$TUI_LAST_RESULT"
 
+        # 解析结果：TUI 返回 UNCHECKED:<index> 或 CHECKED:<index>
+        local selected_idx=""
         case "$result" in
-            create_user*)
+            UNCHECKED:*|CHECKED:*)
+                selected_idx="${result##*:}"
+                ;;
+            "")
+                continue
+                ;;
+        esac
+
+        case "$selected_idx" in
+            0)
                 do_create_user_flow
                 if [ $? -eq 0 ]; then
                     return 0
                 fi
                 ;;
-            switch_user*)
+            1)
                 do_switch_user_flow
                 if [ $? -eq 0 ]; then
                     return 0
                 fi
                 ;;
-            cancel*)
+            2)
                 log_warn "用户取消安装"
                 exit 0
                 ;;

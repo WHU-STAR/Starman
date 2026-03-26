@@ -4,14 +4,17 @@
 
 ### 在线安装（推荐）
 
-使用以下命令一键安装：
+下载安装脚本后执行（需要交互式终端，不支持管道模式）：
 
 ```bash
-# GitHub（推荐）
-curl -fsSL https://github.com/ajgamma/starman/raw/main/installers/bootstrap.sh | bash # TO BE IMPLEMENTED
+# Gitee（国内推荐）
+curl -fsSL -o /tmp/bootstrap.sh https://gitee.com/ajgamma/starman/raw/master/installers/bootstrap.sh && bash /tmp/bootstrap.sh
 
-# 或 Gitee 镜像（国内用户）
-curl -fsSL https://gitee.com/ajgamma/starman/raw/master/installers/bootstrap.sh | bash
+# 或使用 wget
+wget -qO /tmp/bootstrap.sh https://gitee.com/ajgamma/starman/raw/master/installers/bootstrap.sh && bash /tmp/bootstrap.sh
+
+# GitHub（TODO: 待配置）
+# curl -fsSL -o /tmp/bootstrap.sh https://github.com/ajgamma/starman/raw/main/installers/bootstrap.sh && bash /tmp/bootstrap.sh
 ```
 
 ### 离线安装
