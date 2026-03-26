@@ -151,14 +151,8 @@ detect_sudo() {
 detect_network() {
     log_info "检测网络连通性..."
 
-    # Test GitHub
-    if curl -fsSL --connect-timeout 5 "https://github.com" &>/dev/null; then
-        GITHUB_AVAILABLE=true
-        log_info "GitHub 可访问"
-    else
-        GITHUB_AVAILABLE=false
-        log_warn "GitHub 不可访问"
-    fi
+    # TODO: GitHub 源待配置，暂时跳过检测
+    GITHUB_AVAILABLE=false
 
     # Test Gitee
     if curl -fsSL --connect-timeout 5 "https://gitee.com" &>/dev/null; then
@@ -226,7 +220,8 @@ _handoff_to_user() {
     echo ""
     log_success "准备就绪！请复制以下命令切换用户并继续安装："
     echo ""
-    printf '  \033[1;32msu - %s -c "bash %s"\033[0m\n' "$target_user" "$target_script"
+    printf '  \033[1;32msu - %s\033[0m\n' "$target_user"
+    printf '  \033[1;32mbash %s\033[0m\n' "$target_script"
     echo ""
 
     exit 0
