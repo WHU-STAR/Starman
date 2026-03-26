@@ -206,8 +206,8 @@ guide_root_user() {
         printf '请选择以下操作：\n\n'
 
         # 创建 TUI 菜单
-        local menu_id
         tui_menu_create "选择操作"
+        local menu_id="$TUI_LAST_MENU_ID"
         tui_menu_add "$menu_id" "新建 sudo 用户并迁移项目" "create_user" true
         tui_menu_add "$menu_id" "切换到已有用户" "switch_user" false
         tui_menu_add "$menu_id" "取消安装" "cancel" false
