@@ -22,7 +22,6 @@ set -e
 # Global Flags
 # ============================================================================
 
-FROM_ROOT=false
 SUDO_NOPASSWD=false
 
 # ============================================================================
@@ -208,7 +207,7 @@ detect_script_path() {
     log_info "脚本路径：$ORIGINAL_SCRIPT_PATH"
 }
 
-_reexec_as_user() {
+_handoff_to_user() {
     local target_user="$1"
     local script_name
     script_name=$(basename "$ORIGINAL_SCRIPT_PATH")
@@ -219,37 +218,18 @@ _reexec_as_user() {
         cp "$ORIGINAL_SCRIPT_PATH" "$target_script"
         chown "$target_user:$target_user" "$target_script"
         chmod 755 "$target_script"
-        log_info "安装脚本已复制到：$target_script"
     else
         log_error "无法找到安装脚本：$ORIGINAL_SCRIPT_PATH"
         exit 1
     fi
 
-    log_info "正在以用户 $target_user 身份重新执行安装脚本..."
+    echo ""
+    log_success "准备就绪！请复制以下命令切换用户并继续安装："
+    echo ""
+    printf '  \033[1;32msu - %s -c "bash %s"\033[0m\n' "$target_user" "$target_script"
     echo ""
 
-    # 临时配置免密 sudo（su -c 子 shell 无 TTY，无法交互输入密码）
-    local tmp_sudoers="/etc/sudoers.d/starman-install-$target_user"
-    echo "$target_user ALL=(ALL) NOPASSWD:ALL" > "$tmp_sudoers"
-    chmod 440 "$tmp_sudoers"
-
-    su - "$target_user" -c "bash '$target_script' --from-root"
-    local status=$?
-
-    # 清理临时 sudo 配置和脚本副本
-    rm -f "$tmp_sudoers"
-    rm -f "$target_script" 2>/dev/null
-    log_info "已清理临时 sudo 配置"
-
-    if [ $status -ne 0 ]; then
-        log_error "以用户 $target_user 身份执行安装脚本失败"
-        echo ""
-        echo "请手动执行："
-        echo "  su - $target_user"
-        echo "  bash $target_script"
-    fi
-
-    exit $status
+    exit 0
 }
 
 guide_root_user() {
@@ -402,8 +382,7 @@ do_create_user_flow() {
 
     log_success "用户 $username 创建成功，已配置 sudo 权限"
 
-    # 复制脚本到新用户 home 目录并自动重执行
-    _reexec_as_user "$username"
+    _handoff_to_user "$username"
 }
 
 do_switch_user_flow() {
@@ -467,9 +446,7 @@ do_switch_user_flow() {
             ;;
     esac
 
-    log_info "切换到用户：$target_user"
-
-    _reexec_as_user "$target_user"
+    _handoff_to_user "$target_user"
 }
 
 check_sudo() {
@@ -601,23 +578,7 @@ show_offline_guide() {
 # Main
 # ============================================================================
 
-parse_args() {
-    while [ $# -gt 0 ]; do
-        case "$1" in
-            --from-root)
-                FROM_ROOT=true
-                shift
-                ;;
-            *)
-                shift
-                ;;
-        esac
-    done
-}
-
 main() {
-    parse_args "$@"
-
     # 显示 ASCII Banner
     if command -v ui_banner_starman &>/dev/null; then
         ui_banner_starman
@@ -633,12 +594,8 @@ main() {
     # Check sudo before network detection
     check_sudo
 
-    # Guide root user (mandatory, skipped when re-invoked via --from-root)
-    if [ "$FROM_ROOT" = true ]; then
-        log_info "已从 root 用户引导切换，继续安装..."
-    else
-        guide_root_user
-    fi
+    # root 用户引导切换（会 exit，不会继续后续流程）
+    guide_root_user
 
     # Detect network
     detect_network || {
