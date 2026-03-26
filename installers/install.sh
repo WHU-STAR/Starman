@@ -213,8 +213,7 @@ guide_root_user() {
         tui_menu_add "$menu_id" "取消安装" "cancel" false
 
         # 运行菜单
-        local choice
-        choice=$(tui_menu_run "$menu_id")
+        tui_menu_run "$menu_id"
         local result="$TUI_LAST_RESULT"
 
         case "$result" in
