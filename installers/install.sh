@@ -434,6 +434,7 @@ do_switch_user_flow() {
 
     tui_menu_create "选择用户"
     local menu_id="$TUI_LAST_MENU_ID"
+    tui_menu_set_radio "$menu_id"
 
     for i in "${!users[@]}"; do
         tui_menu_add "$menu_id" "${users[$i]}" "${users[$i]}" false
@@ -447,15 +448,15 @@ do_switch_user_flow() {
         return 1
     fi
 
-    # 解析 TUI 结果（可能是 UNCHECKED:index 格式）
     local target_user=""
     case "$result" in
-        UNCHECKED:*)
-            local idx="${result#UNCHECKED:}"
+        SELECTED:*)
+            local idx="${result#SELECTED:}"
             target_user="${users[$idx]}"
             ;;
         *)
-            target_user="$result"
+            log_warn "用户取消选择"
+            return 1
             ;;
     esac
 
