@@ -2,13 +2,15 @@
 #
 # Starman Main Installer
 #
-# Usage: ./install.sh (usually downloaded and executed by bootstrap.sh)
+# Usage: ./install.sh [--from-root] (usually downloaded and executed by bootstrap.sh)
 #
 # This script:
-# 1. Detects system environment (architecture, network, user identity)
-# 2. Downloads starman binary from GitHub/Gitee Releases
-# 3. Installs to /usr/sbin/starman
-# 4. Deploys configuration and completion scripts
+# 1. Detects system environment (user identity, sudo, network)
+# 2. Handles root user → non-root user switch
+# 3. Downloads only the required install scripts from Gitee/GitHub
+# 4. Stages to /opt/starman-install
+# 5. Runs the project's install.sh for system setup
+# 6. Staging dir can be cleaned up after installation is complete
 #
 # Copyright (c) STAR Laboratory. All rights reserved.
 # Licensed under the GPL License.
@@ -17,20 +19,34 @@
 set -e
 
 # ============================================================================
+# Global Flags
+# ============================================================================
+
+FROM_ROOT=false
+SUDO_NOPASSWD=false
+
+# ============================================================================
 # Configuration
 # ============================================================================
 
 GITHUB_BASE="https://github.com/STAR-Organization/starman"
 GITEE_BASE="https://gitee.com/ajgamma/starman"
 
-# Release binary URLs (will be constructed based on arch)
-GITHUB_RELEASE="$GITHUB_BASE/releases/latest/download"
-GITEE_RELEASE="$GITEE_BASE/releases/latest/download"
+# Raw file URL bases
+GITEE_RAW="$GITEE_BASE/raw/master"
+GITHUB_RAW="https://raw.githubusercontent.com/STAR-Organization/starman/master"
 
-# Installation paths
-INSTALL_DIR="/usr/sbin"
-CONFIG_DIR="/etc/starman"
-STARMAN_BIN="starman"
+# Staging directory for install scripts (cleaned up after completion)
+STAGING_DIR="/opt/starman-install"
+
+# Files needed for installation (relative to repo root)
+INSTALL_FILES=(
+    "install.sh"
+    "scripts/lib/tui.sh"
+    "scripts/lib/common.sh"
+    "scripts/lib/pkgmgr.sh"
+    "scripts/lib/banners.txt"
+)
 
 # Colors for output
 RED='\033[0;31m'
@@ -106,23 +122,6 @@ log_success() {
 # Environment Detection
 # ============================================================================
 
-detect_arch() {
-    ARCH=$(uname -m)
-    case "$ARCH" in
-        x86_64|amd64)
-            ARCH="x86_64"
-            ;;
-        aarch64|arm64)
-            ARCH="aarch64"
-            ;;
-        *)
-            log_error "不支持的系统架构：$ARCH"
-            return 1
-            ;;
-    esac
-    log_info "检测到系统架构：$ARCH"
-}
-
 detect_user() {
     if [ "$(id -u)" = "0" ]; then
         IS_ROOT=true
@@ -136,9 +135,15 @@ detect_user() {
 detect_sudo() {
     if sudo -n true 2>/dev/null; then
         HAS_SUDO=true
-        log_info "检测到 sudo 权限"
+        SUDO_NOPASSWD=true
+        log_info "检测到 sudo 权限（免密）"
+    elif id -nG 2>/dev/null | grep -qwE 'sudo|wheel|admin'; then
+        HAS_SUDO=true
+        SUDO_NOPASSWD=false
+        log_info "检测到 sudo 权限（需要密码）"
     else
         HAS_SUDO=false
+        SUDO_NOPASSWD=false
         log_warn "未检测到 sudo 权限"
     fi
 }
@@ -174,6 +179,26 @@ detect_network() {
 # User Guidance
 # ============================================================================
 
+check_interactive() {
+    if [ "$IS_ROOT" = true ] && [ ! -t 0 ]; then
+        log_error "检测到以 root 用户通过管道模式执行安装脚本"
+        echo ""
+        echo "管道模式下无法进行交互式用户切换，请手动操作："
+        echo ""
+        echo "  1. 创建非 root 用户："
+        echo "     useradd -m -s /bin/bash <用户名>"
+        echo "     passwd <用户名>"
+        echo "     usermod -aG sudo <用户名>   # Debian/Ubuntu"
+        echo "     usermod -aG wheel <用户名>  # RHEL/Fedora"
+        echo ""
+        echo "  2. 以新用户身份重新执行安装："
+        echo "     su - <用户名>"
+        echo "     curl -fsSL <安装URL> | bash"
+        echo ""
+        exit 1
+    fi
+}
+
 # 保存原始脚本路径（用于切换用户后重新执行）
 ORIGINAL_SCRIPT_PATH=""
 
@@ -182,10 +207,51 @@ detect_script_path() {
     log_info "脚本路径：$ORIGINAL_SCRIPT_PATH"
 }
 
+_reexec_as_user() {
+    local target_user="$1"
+    local script_name
+    script_name=$(basename "$ORIGINAL_SCRIPT_PATH")
+    local target_dir="/home/$target_user"
+    local target_script="$target_dir/$script_name"
+
+    if [ -f "$ORIGINAL_SCRIPT_PATH" ]; then
+        cp "$ORIGINAL_SCRIPT_PATH" "$target_script"
+        chown "$target_user:$target_user" "$target_script"
+        chmod 755 "$target_script"
+        log_info "安装脚本已复制到：$target_script"
+    else
+        log_error "无法找到安装脚本：$ORIGINAL_SCRIPT_PATH"
+        exit 1
+    fi
+
+    log_info "正在以用户 $target_user 身份重新执行安装脚本..."
+    echo ""
+
+    # root 执行 su 不需要密码
+    su - "$target_user" -c "bash '$target_script' --from-root"
+    local status=$?
+
+    # 清理复制的脚本
+    rm -f "$target_script" 2>/dev/null
+
+    if [ $status -ne 0 ]; then
+        log_error "以用户 $target_user 身份执行安装脚本失败"
+        echo ""
+        echo "请手动执行："
+        echo "  su - $target_user"
+        echo "  bash $target_script"
+    fi
+
+    exit $status
+}
+
 guide_root_user() {
     if [ "$IS_ROOT" = false ]; then
         return 0
     fi
+
+    # 非交互模式下无法进行 TUI 操作
+    check_interactive
 
     # 强制引导：root 用户必须切换到非 root 用户
     while true; do
@@ -240,7 +306,6 @@ guide_root_user() {
 do_create_user_flow() {
     tui_clear
 
-    # 提示输入用户名
     if [ "$TUI_USE_TPUT" = "true" ]; then
         printf '%s%s%s\n\n' "$TUI_TPUT_BOLD" "新建 sudo 用户" "$TUI_TPUT_RESET"
     else
@@ -250,7 +315,6 @@ do_create_user_flow() {
     read -rp "请输入新用户名（默认：staruser）: " username
     username="${username:-staruser}"
 
-    # 验证用户名
     if [[ ! "$username" =~ ^[a-z_][a-z0-9_-]*$ ]]; then
         log_error "无效的用户名：$username"
         echo "用户名必须以小写字母或下划线开头，只能包含小写字母、数字、下划线和连字符。"
@@ -258,69 +322,76 @@ do_create_user_flow() {
         return 1
     fi
 
-    # 检查用户是否已存在
     if id "$username" &>/dev/null; then
         log_error "用户 $username 已存在"
         read -rp "按 Enter 继续..."
         return 1
     fi
 
-    printf "正在创建用户：%s...\n" "$username"
+    # 密码输入（两次确认）
+    local password=""
+    while true; do
+        local pw1="" pw2=""
+        echo ""
+        read -rsp "请为用户 $username 设置密码: " pw1
+        echo ""
+        read -rsp "请再次输入密码确认: " pw2
+        echo ""
 
-    # 创建用户
+        if [ -z "$pw1" ]; then
+            log_error "密码不能为空"
+            continue
+        fi
+
+        if [ "$pw1" != "$pw2" ]; then
+            log_error "两次输入的密码不一致，请重新输入"
+            continue
+        fi
+
+        password="$pw1"
+        break
+    done
+
+    printf "\n正在创建用户：%s...\n" "$username"
+
     if ! useradd -m -s /bin/bash "$username" 2>/dev/null; then
         log_error "创建用户失败，请检查系统命令"
+        unset password
         read -rp "按 Enter 继续..."
         return 1
     fi
 
-    # 添加到 sudo 组
+    # 设置密码
+    echo "$username:$password" | chpasswd 2>/dev/null
+    unset password
+    log_success "用户密码已设置"
+
+    # 配置 sudo 权限：sudo 组 → wheel 组 → sudoers.d 兜底
+    local sudo_ok=false
     if command -v usermod &>/dev/null; then
-        usermod -aG sudo "$username" 2>/dev/null || \
-        usermod -aG wheel "$username" 2>/dev/null || \
-        echo "$username ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers 2>/dev/null
+        if getent group sudo &>/dev/null; then
+            usermod -aG sudo "$username" 2>/dev/null && sudo_ok=true
+        fi
+        if [ "$sudo_ok" = false ] && getent group wheel &>/dev/null; then
+            usermod -aG wheel "$username" 2>/dev/null && sudo_ok=true
+        fi
+    fi
+    if [ "$sudo_ok" = false ]; then
+        mkdir -p /etc/sudoers.d
+        echo "$username ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/$username"
+        chmod 440 "/etc/sudoers.d/$username"
     fi
 
-    log_success "用户 $username 创建成功"
+    log_success "用户 $username 创建成功，已配置 sudo 权限"
 
-    # 复制安装脚本到新用户 home 目录
-    local script_name
-    script_name=$(basename "$ORIGINAL_SCRIPT_PATH")
-    local target_dir="/home/$username"
-
-    if [ -f "$ORIGINAL_SCRIPT_PATH" ]; then
-        cp "$ORIGINAL_SCRIPT_PATH" "$target_dir/"
-        chown "$username:$username" "$target_dir/$script_name"
-        chmod 755 "$target_dir/$script_name"
-        log_info "安装脚本已复制到：$target_dir/$script_name"
-    fi
-
-    # 显示切换指引
-    tui_clear
-
-    if [ "$TUI_USE_TPUT" = "true" ]; then
-        printf '%s%s%s\n\n' "$TUI_TPUT_BOLD" "用户创建完成" "$TUI_TPUT_RESET"
-    else
-        printf '\033[1m用户创建完成\033[0m\n\n'
-    fi
-
-    printf '请按以下步骤操作：\n\n'
-    printf '  1. 切换用户：\n'
-    printf '     \033[1;32msu - %s\033[0m\n\n' "$username"
-    printf '  2. 重新运行安装：\n'
-    printf '     \033[1;32m./%s\033[0m\n\n' "$script_name"
-    printf '\n按 Enter 键退出...'
-    read -r
-
-    exit 0
+    # 复制脚本到新用户 home 目录并自动重执行
+    _reexec_as_user "$username"
 }
 
 do_switch_user_flow() {
     tui_clear
 
-    # 获取所有非 root 用户（/home 下有主目录的用户）
     local users=()
-    local user_values=()
 
     if [ -d "/home" ]; then
         for dir in /home/*/; do
@@ -329,13 +400,11 @@ do_switch_user_flow() {
                 user=$(basename "$dir")
                 if id "$user" &>/dev/null; then
                     users+=("$user")
-                    user_values+=("$user")
                 fi
             fi
         done
     fi
 
-    # 检查是否有可用用户
     if [ ${#users[@]} -eq 0 ]; then
         log_error "未找到可用的非 root 用户"
         echo ""
@@ -344,7 +413,6 @@ do_switch_user_flow() {
         return 1
     fi
 
-    # 创建 TUI 菜单
     tui_clear
 
     if [ "$TUI_USE_TPUT" = "true" ]; then
@@ -353,81 +421,36 @@ do_switch_user_flow() {
         printf '\033[1m选择要切换的用户\033[0m\n\n'
     fi
 
-    local menu_id
     tui_menu_create "选择用户"
+    local menu_id="$TUI_LAST_MENU_ID"
 
     for i in "${!users[@]}"; do
-        tui_menu_add "$menu_id" "${users[$i]}" "${user_values[$i]}" false
+        tui_menu_add "$menu_id" "${users[$i]}" "${users[$i]}" false
     done
 
-    # 运行菜单
-    local result
     tui_menu_run "$menu_id"
-    result="$TUI_LAST_RESULT"
+    local result="$TUI_LAST_RESULT"
 
     if [ -z "$result" ]; then
         log_warn "用户取消选择"
         return 1
     fi
 
-    local target_user="$result"
+    # 解析 TUI 结果（可能是 UNCHECKED:index 格式）
+    local target_user=""
+    case "$result" in
+        UNCHECKED:*)
+            local idx="${result#UNCHECKED:}"
+            target_user="${users[$idx]}"
+            ;;
+        *)
+            target_user="$result"
+            ;;
+    esac
+
     log_info "切换到用户：$target_user"
 
-    # 复制安装脚本到目标用户 home 目录
-    local script_name
-    script_name=$(basename "$ORIGINAL_SCRIPT_PATH")
-    local target_dir="/home/$target_user"
-
-    if [ -f "$ORIGINAL_SCRIPT_PATH" ]; then
-        cp "$ORIGINAL_SCRIPT_PATH" "$target_dir/"
-        chown "$target_user:$target_user" "$target_dir/$script_name"
-        chmod 755 "$target_dir/$script_name"
-        log_info "安装脚本已复制到：$target_dir/$script_name"
-    fi
-
-    # 使用 su 切换用户并重新执行
-    tui_clear
-
-    if [ "$TUI_USE_TPUT" = "true" ]; then
-        printf '%s%s%s\n\n' "$TUI_TPUT_BOLD" "切换用户" "$TUI_TPUT_RESET"
-    else
-        printf '\033[1m切换用户\033[0m\n\n'
-    fi
-
-    printf '正在切换到用户：%s...\n\n' "$target_user"
-    printf '在新会话中重新执行安装脚本。\n\n'
-
-    # 创建一个临时脚本在新用户上下文中执行
-    local temp_script="$target_dir/install_temp.sh"
-    cat > "$temp_script" << EOF
-#!/bin/bash
-echo "================================"
-echo "  已切换到用户：$target_user"
-echo "================================"
-echo ""
-echo "正在重新执行安装脚本..."
-cd "$target_dir"
-./$script_name
-EOF
-    chown "$target_user:$target_user" "$temp_script"
-    chmod 755 "$temp_script"
-
-    # 使用 su -c 执行
-    su - "$target_user" -c "cd $target_dir && ./install_temp.sh"
-
-    # 如果 su 失败，提供手动指引
-    if [ $? -ne 0 ]; then
-        tui_clear
-        printf '\033[1m手动切换指引\033[0m\n\n'
-        printf '请手动执行以下命令：\n\n'
-        printf '  \033[1;32msu - %s\033[0m\n\n' "$target_user"
-        printf '然后在新会话中执行：\n\n'
-        printf '  \033[1;32mcd %s && ./%s\033[0m\n\n' "$target_dir" "$script_name"
-        printf '\n按 Enter 键退出...'
-        read -r
-    fi
-
-    exit 0
+    _reexec_as_user "$target_user"
 }
 
 check_sudo() {
@@ -441,202 +464,102 @@ check_sudo() {
 }
 
 # ============================================================================
-# Download Functions
+# Download & Install Functions
 # ============================================================================
 
-download_binary() {
-    local output="$1"
-    local binary_name="starman-$ARCH-linux"
-
-    # Construct URLs
-    local github_url="$GITHUB_RELEASE/$binary_name"
-    local gitee_url="$GITEE_RELEASE/$binary_name"
-
-    log_info "正在下载 starman 二进制..."
-
-    # Try GitHub first if available
-    if [ "$GITHUB_AVAILABLE" = true ]; then
-        log_info "从 GitHub 下载：$github_url"
-        if curl -fsSL -C - "$github_url" -o "$output" 2>/dev/null; then
-            log_success "下载成功"
-            return 0
-        fi
+_sudo_cmd() {
+    if [ "$IS_ROOT" = true ]; then
+        "$@"
+    else
+        sudo "$@"
     fi
+}
 
-    # Fallback to Gitee
+# 从 Gitee 或 GitHub 下载单个文件
+# 用法: _download_raw_file <relative_path> <output>
+_download_raw_file() {
+    local file_path="$1"
+    local output="$2"
+
     if [ "$GITEE_AVAILABLE" = true ]; then
-        log_warn "GitHub 下载失败，切换到 Gitee..."
-        log_info "从 Gitee 下载：$gitee_url"
-        if curl -fsSL -C - "$gitee_url" -o "$output"; then
-            log_success "下载成功"
+        if curl -fsSL "$GITEE_RAW/$file_path" -o "$output" 2>/dev/null; then
             return 0
         fi
     fi
 
-    log_error "下载失败，请检查网络连接或手动下载"
-    echo ""
-    echo "离线安装指引："
-    echo "1. 在其他机器下载：$github_url"
-    echo "2. 将文件复制到本机的 /tmp/starman"
-    echo "3. 重新运行此脚本"
+    if [ "$GITHUB_AVAILABLE" = true ]; then
+        if curl -fsSL "$GITHUB_RAW/$file_path" -o "$output" 2>/dev/null; then
+            return 0
+        fi
+    fi
+
     return 1
 }
 
-verify_checksum() {
-    local binary="$1"
-    local checksum_file="$2"
+download_install_files() {
+    local tmp_dir
+    tmp_dir="$(mktemp -d)"
 
-    if [ -f "$checksum_file" ]; then
-        log_info "验证 checksum..."
-        local expected
-        expected=$(cat "$checksum_file" | awk '{print $1}')
-        local actual
-        actual=$(sha256sum "$binary" | awk '{print $1}')
+    log_info "正在下载安装脚本（共 ${#INSTALL_FILES[@]} 个文件）..."
 
-        if [ "$expected" = "$actual" ]; then
-            log_success "Checksum 验证通过"
-            return 0
+    local failed=0
+    for file in "${INSTALL_FILES[@]}"; do
+        local dir
+        dir="$(dirname "$file")"
+        mkdir -p "$tmp_dir/$dir"
+
+        if _download_raw_file "$file" "$tmp_dir/$file"; then
+            log_info "  ✓ $file"
         else
-            log_error "Checksum 验证失败"
-            return 1
+            log_error "  ✗ $file"
+            failed=1
         fi
-    fi
-    return 0
-}
+    done
 
-# ============================================================================
-# Installation Functions
-# ============================================================================
-
-install_binary() {
-    local binary="$1"
-
-    log_info "正在安装 starman 到系统..."
-
-    # Create config directory
-    if [ ! -d "$CONFIG_DIR" ]; then
-        mkdir -p "$CONFIG_DIR"
-        log_info "创建配置目录：$CONFIG_DIR"
-    fi
-
-    # Copy binary
-    if [ "$IS_ROOT" = true ]; then
-        cp "$binary" "$INSTALL_DIR/$STARMAN_BIN"
-        chmod 755 "$INSTALL_DIR/$STARMAN_BIN"
-        chown root:root "$INSTALL_DIR/$STARMAN_BIN"
-    else
-        sudo cp "$binary" "$INSTALL_DIR/$STARMAN_BIN"
-        sudo chmod 755 "$INSTALL_DIR/$STARMAN_BIN"
-        sudo chown root:root "$INSTALL_DIR/$STARMAN_BIN"
-    fi
-
-    log_success "已安装到 $INSTALL_DIR/$STARMAN_BIN"
-}
-
-deploy_completions() {
-    log_info "部署补全脚本..."
-
-    # Bash completion
-    local bash_comp="/etc/bash_completion.d/starman"
-    if [ -d "/etc/bash_completion.d" ]; then
-        if [ "$IS_ROOT" = true ]; then
-            cat > "$bash_comp" << 'EOF'
-_starman() {
-    local cur="${COMP_WORDS[COMP_CWORD]}"
-    COMPREPLY=($(compgen -W "--help --version" -- "$cur"))
-}
-complete -F _starman starman
-EOF
-            log_info "已部署 bash 补全"
-        fi
-    fi
-
-    # Zsh completion
-    local zsh_comp="/usr/local/share/zsh/site-functions/_starman"
-    if [ -d "/usr/local/share/zsh/site-functions" ] || mkdir -p "$(dirname "$zsh_comp")" 2>/dev/null; then
-        if [ "$IS_ROOT" = true ]; then
-            cat > "$zsh_comp" << 'EOF'
-#compdef starman
-_starman() {
-    _arguments '--help[显示帮助]' '--version[显示版本]'
-}
-_starman
-EOF
-            log_info "已部署 zsh 补全"
-        fi
-    fi
-}
-
-verify_installation() {
-    log_info "验证安装..."
-
-    if command -v starman &>/dev/null; then
-        local version
-        version=$(starman --version 2>/dev/null || echo "unknown")
-        log_success "安装成功！版本：$version"
-        return 0
-    else
-        log_warn "starman 未在 PATH 中，可能需要重新加载 shell"
+    if [ "$failed" -eq 1 ]; then
+        log_error "部分文件下载失败"
+        rm -rf "$tmp_dir"
         return 1
     fi
+
+    # 部署到 staging 目录
+    _sudo_cmd mkdir -p "$STAGING_DIR"
+    _sudo_cmd cp -r "$tmp_dir/"* "$STAGING_DIR/"
+    _sudo_cmd chown -R "$(whoami):$(whoami)" "$STAGING_DIR"
+    chmod +x "$STAGING_DIR/install.sh"
+
+    rm -rf "$tmp_dir"
+    log_success "安装脚本已就绪：$STAGING_DIR"
 }
 
-# ============================================================================
-# Post-Installation
-# ============================================================================
+run_setup() {
+    local setup_script="$STAGING_DIR/install.sh"
 
-# ============================================================================
-# Step Functions (Placeholders for sub-changes)
-# ============================================================================
+    if [ ! -f "$setup_script" ]; then
+        log_error "安装脚本不存在：$setup_script"
+        return 1
+    fi
 
-# run_step_packages - 安装系统软件包（占位，由子变更实现）
-# TODO: 由 package-install 子变更实现
-run_step_packages() {
-    log_info "run_step_packages: TODO - 由 package-install 子变更实现"
-}
-
-# run_step_disk - 磁盘分区与挂载（占位，由子变更实现）
-# TODO: 由 disk-mount 子变更实现
-run_step_disk() {
-    log_info "run_step_disk: TODO - 由 disk-mount 子变更实现"
-}
-
-# run_step_user - 用户配置（占位，由子变更实现）
-# TODO: 由 user-config 子变更实现
-run_step_user() {
-    log_info "run_step_user: TODO - 由 user-config 子变更实现"
-}
-
-# run_step_services - 服务配置（占位，由子变更实现）
-# TODO: 由 services-config 子变更实现
-run_step_services() {
-    log_info "run_step_services: TODO - 由 services-config 子变更实现"
-}
-
-ask_run_setup() {
     echo ""
     log_info "============================================"
-    log_info "  安装完成"
+    log_info "  下载完成，启动系统配置"
     log_info "============================================"
     echo ""
-    echo "是否立即运行装机脚本初始化系统？"
-    echo ""
-    read -rp "[?] 是否立即运行装机脚本？[Y/n] " answer
-    case "$answer" in
-        [nN]|[nN][oO])
-            echo ""
-            log_info "稍后可通过以下命令运行装机脚本："
-            echo "  starman setup"
-            ;;
-        *)
-            log_info "正在启动装机脚本..."
-            if command -v starman &>/dev/null; then
-                starman setup || log_warn "装机脚本执行失败"
-            else
-                log_error "starman 未找到，无法运行装机脚本"
-            fi
-            ;;
-    esac
+
+    cd "$STAGING_DIR"
+    bash "$setup_script"
+    local status=$?
+
+    # setup 脚本正常退出后，提示可以清理
+    if [ $status -eq 0 ]; then
+        echo ""
+        log_success "系统配置完成"
+        log_info "安装脚本位于 $STAGING_DIR"
+        log_info "如需重新运行: cd $STAGING_DIR && bash install.sh"
+        log_info "确认不再需要后可清理: sudo rm -rf $STAGING_DIR"
+    fi
+
+    return $status
 }
 
 show_offline_guide() {
@@ -645,16 +568,14 @@ show_offline_guide() {
     log_info "  离线安装指引"
     log_info "============================================"
     echo ""
-    echo "如果无法在线下载，可按以下步骤离线安装："
+    echo "如果无法在线下载，可在可联网的机器上手动下载以下文件："
     echo ""
-    echo "1. 在其他机器下载二进制文件："
-    echo "   curl -LO https://github.com/STAR-Organization/starman/releases/latest/download/starman-$ARCH-linux"
+    for file in "${INSTALL_FILES[@]}"; do
+        echo "  $GITEE_RAW/$file"
+    done
     echo ""
-    echo "2. 将文件复制到目标机器的 /tmp/starman"
-    echo ""
-    echo "3. 在目标机器执行："
-    echo "   sudo cp /tmp/starman /usr/sbin/starman"
-    echo "   sudo chmod 755 /usr/sbin/starman"
+    echo "将文件按目录结构放入目标机器的 $STAGING_DIR/ 下，然后执行："
+    echo "  cd $STAGING_DIR && bash install.sh"
     echo ""
 }
 
@@ -662,7 +583,23 @@ show_offline_guide() {
 # Main
 # ============================================================================
 
+parse_args() {
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --from-root)
+                FROM_ROOT=true
+                shift
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+}
+
 main() {
+    parse_args "$@"
+
     # 显示 ASCII Banner
     if command -v ui_banner_starman &>/dev/null; then
         ui_banner_starman
@@ -671,7 +608,6 @@ main() {
     fi
 
     # Detect environment
-    detect_arch || exit 1
     detect_user
     detect_sudo
     detect_script_path
@@ -679,8 +615,12 @@ main() {
     # Check sudo before network detection
     check_sudo
 
-    # Guide root user (mandatory)
-    guide_root_user
+    # Guide root user (mandatory, skipped when re-invoked via --from-root)
+    if [ "$FROM_ROOT" = true ]; then
+        log_info "已从 root 用户引导切换，继续安装..."
+    else
+        guide_root_user
+    fi
 
     # Detect network
     detect_network || {
@@ -688,31 +628,14 @@ main() {
         exit 1
     }
 
-    # Download binary
-    local temp_binary
-    temp_binary=$(mktemp)/starman
-    download_binary "$temp_binary" || {
+    # Download install scripts
+    download_install_files || {
         show_offline_guide
         exit 1
     }
 
-    # Verify checksum (optional)
-    # verify_checksum "$temp_binary" "$temp_binary.sha256"
-
-    # Install
-    install_binary "$temp_binary"
-
-    # Deploy completions
-    deploy_completions
-
-    # Verify
-    verify_installation
-
-    # Cleanup
-    rm -f "$temp_binary"
-
-    # Ask to run setup script
-    ask_run_setup
+    # Run setup
+    run_setup
 
     log_info ""
     log_info "=== Installation Complete ==="
