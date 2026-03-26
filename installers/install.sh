@@ -228,12 +228,18 @@ _reexec_as_user() {
     log_info "正在以用户 $target_user 身份重新执行安装脚本..."
     echo ""
 
-    # root 执行 su 不需要密码
+    # 临时配置免密 sudo（su -c 子 shell 无 TTY，无法交互输入密码）
+    local tmp_sudoers="/etc/sudoers.d/starman-install-$target_user"
+    echo "$target_user ALL=(ALL) NOPASSWD:ALL" > "$tmp_sudoers"
+    chmod 440 "$tmp_sudoers"
+
     su - "$target_user" -c "bash '$target_script' --from-root"
     local status=$?
 
-    # 清理复制的脚本
+    # 清理临时 sudo 配置和脚本副本
+    rm -f "$tmp_sudoers"
     rm -f "$target_script" 2>/dev/null
+    log_info "已清理临时 sudo 配置"
 
     if [ $status -ne 0 ]; then
         log_error "以用户 $target_user 身份执行安装脚本失败"
