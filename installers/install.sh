@@ -21,7 +21,7 @@ set -e
 # ============================================================================
 
 GITHUB_BASE="https://github.com/STAR-Organization/starman"
-GITEE_BASE="https://gitee.com/STAR-Organization/starman"
+GITEE_BASE="https://gitee.com/ajgamma/starman"
 
 # Release binary URLs (will be constructed based on arch)
 GITHUB_RELEASE="$GITHUB_BASE/releases/latest/download"

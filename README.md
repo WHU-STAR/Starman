@@ -11,7 +11,7 @@
 curl -fsSL https://github.com/ajgamma/starman/raw/main/installers/bootstrap.sh | bash # TO BE IMPLEMENTED
 
 # 或 Gitee 镜像（国内用户）
-curl -fsSL https://gitee.com/ajgamma/starman/raw/main/installers/bootstrap.sh | bash
+curl -fsSL https://gitee.com/ajgamma/starman/raw/master/installers/bootstrap.sh | bash
 ```
 
 ### 离线安装
@@ -66,15 +66,6 @@ values=$(tui_parse_result "$result" "VALUE")
 
 - [开发流程设计](openspec/DEV_FLOW.md) - 完整的开发路线图
 - [OpenSpec 配置](openspec/config.yaml) - 项目规范配置
-
-**注意**：装机脚本采用模块化设计，完整功能需按以下顺序合并子变更：
-
-1. `install-script-core` - 核心框架（入口、身份验证、OS 检测、TUI 基线）
-2. `tui-baseline` - TUI 交互增强
-3. `package-install` - 软件包安装
-4. `disk-mount` - 磁盘分区与挂载
-5. `user-config` - 用户配置
-6. `services-config` - 服务配置
 
 ## 测试
 

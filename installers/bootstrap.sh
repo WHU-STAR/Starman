@@ -17,12 +17,10 @@ set -e
 # Configuration
 # ============================================================================
 
-GITHUB_BASE="https://github.com/STAR-Organization/starman"
-GITEE_BASE="https://gitee.com/STAR-Organization/starman"
+GITEE_BASE="https://gitee.com/ajgamma/starman"
 
-# Latest release installer URL
-GITHUB_INSTALLER="$GITHUB_BASE/raw/main/installers/install.sh"
-GITEE_INSTALLER="$GITEE_BASE/raw/main/installers/install.sh"
+# Latest release installer URL (Gitee only)
+GITEE_INSTALLER="$GITEE_BASE/raw/master/installers/install.sh"
 
 # ============================================================================
 # Helper Functions
@@ -76,26 +74,20 @@ download_file() {
 }
 
 download_and_run() {
-    local github_url="$1"
-    local gitee_url="$2"
+    local gitee_url="$1"
     local temp_file
 
     temp_file=$(mktemp -d)/install.sh
 
     log_info "正在下载安装脚本..."
 
-    # Try GitHub first
-    if download_file "$github_url" "$temp_file" 2>/dev/null; then
-        log_info "已从 GitHub 下载安装脚本"
+    # Download from Gitee
+    if download_file "$gitee_url" "$temp_file"; then
+        log_info "已从 Gitee 下载安装脚本"
     else
-        log_warn "GitHub 下载失败，切换到 Gitee 镜像..."
-        if download_file "$gitee_url" "$temp_file"; then
-            log_info "已从 Gitee 下载安装脚本"
-        else
-            log_error "无法下载安装脚本，请检查网络连接"
-            rm -f "$temp_file"
-            return 1
-        fi
+        log_error "无法下载安装脚本，请检查网络连接"
+        rm -f "$temp_file"
+        return 1
     fi
 
     # Execute the install script
@@ -123,8 +115,8 @@ main() {
     fi
     log_info "使用下载工具：$DOWNLOADER"
 
-    # Download and run install script
-    download_and_run "$GITHUB_INSTALLER" "$GITEE_INSTALLER"
+    # Download and run install script from Gitee
+    download_and_run "$GITEE_INSTALLER"
 
     log_info ""
     log_info "=== Bootstrap Complete ==="
