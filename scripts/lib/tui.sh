@@ -71,6 +71,7 @@ declare -A TUI_MENU_ITEMS_OPTIONS   # 可选项列表（分号分隔）
 declare -A TUI_MENU_ITEMS_CURRENT   # 配置式选项的当前值
 declare -A TUI_MENU_CURSOR
 declare -A TUI_MENU_COUNT
+declare -A TUI_MENU_MODE        # 菜单模式："multi"（多选，默认）或 "radio"（单选）
 
 # 检测标志
 TUI_USE_TPUT=false
@@ -207,6 +208,14 @@ tui_menu_create() {
     TUI_MENU_ITEMS_CURRENT["$TUI_LAST_MENU_ID"]=""
     TUI_MENU_CURSOR["$TUI_LAST_MENU_ID"]=0
     TUI_MENU_COUNT["$TUI_LAST_MENU_ID"]=0
+    TUI_MENU_MODE["$TUI_LAST_MENU_ID"]="multi"
+}
+
+# 设置菜单为单选模式
+# 用法：tui_menu_set_radio <menu_id>
+tui_menu_set_radio() {
+    local menu_id="$1"
+    TUI_MENU_MODE["$menu_id"]="radio"
 }
 
 # 添加菜单项
@@ -512,6 +521,7 @@ tui_menu_render() {
 
     # 打印菜单项
     local i=0
+    local mode="${TUI_MENU_MODE[$menu_id]:-multi}"
     IFS='|' read -ra TEXTS <<< "${TUI_MENU_ITEMS_TEXT[$menu_id]:-}"
     for text in "${TEXTS[@]}"; do
         local checked
@@ -523,13 +533,17 @@ tui_menu_render() {
 
         # 根据类型渲染不同的格式
         if [ "$item_type" = "options" ]; then
-            # 配置式选项：[标签] 当前值 <← →>
             local current
             current=$(tui_menu_get_current "$menu_id" "$i")
             status="[$text]"
             suffix=" $current <← →>"
+        elif [ "$mode" = "radio" ]; then
+            if [ "$checked" = "true" ]; then
+                status="(●)"
+            else
+                status="( )"
+            fi
         else
-            # 勾选式选项：[✓] 或 [ ]
             if [ "$checked" = "true" ]; then
                 if [ "$TUI_USE_COLOR" = true ]; then
                     status="[✓]"
@@ -575,14 +589,20 @@ tui_menu_render() {
 
     # 打印操作提示
     printf '\n'
+    local hint=""
+    if [ "$mode" = "radio" ]; then
+        hint="↑/k 上移  ↓/j 下移  Enter 确认  ESC/Ctrl-C 退出"
+    else
+        hint="↑/k 上移  ↓/j 下移  空格勾选  ←→/hl 切换选项  Enter 确认  ESC/Ctrl-C 退出"
+    fi
     if [ "$TUI_USE_COLOR" = true ]; then
         if [ "$TUI_USE_TPUT" = "true" ]; then
-            printf '%s↑/k 上移  ↓/j 下移  空格勾选  ←→/hl 切换选项  Enter 确认  ESC/Ctrl-C 退出%s\n' "$TUI_TPUT_WHITE" "$TUI_TPUT_RESET"
+            printf '%s%s%s\n' "$TUI_TPUT_WHITE" "$hint" "$TUI_TPUT_RESET"
         else
-            printf '%b↑/k 上移  ↓/j 下移  空格勾选  ←→/hl 切换选项  Enter 确认  ESC/Ctrl-C 退出%b\n' "$TUI_WHITE" "$TUI_RESET"
+            printf '%b%s%b\n' "$TUI_WHITE" "$hint" "$TUI_RESET"
         fi
     else
-        printf '↑/k 上移  ↓/j 下移  空格勾选  ←→/hl 切换选项  Enter 确认  ESC/Ctrl-C 退出\n'
+        printf '%s\n' "$hint"
     fi
 }
 
@@ -728,63 +748,77 @@ tui_menu_run() {
                 ;;
             ' '|$'\x20')  # 空格切换勾选
                 local cursor="${TUI_MENU_CURSOR[$menu_id]:-0}"
-                local checked
-                checked=$(tui_menu_get_checked "$menu_id" "$cursor")
-                if [ "$checked" = "true" ]; then
-                    tui_menu_set_checked "$menu_id" "$cursor" "false"
-                else
+                local mode="${TUI_MENU_MODE[$menu_id]:-multi}"
+
+                if [ "$mode" = "radio" ]; then
+                    # 单选：先取消所有，再选中当前
+                    local ri=0
+                    while [ "$ri" -lt "$count" ]; do
+                        tui_menu_set_checked "$menu_id" "$ri" "false"
+                        ri=$((ri + 1))
+                    done
                     tui_menu_set_checked "$menu_id" "$cursor" "true"
+                else
+                    # 多选：切换当前项
+                    local checked
+                    checked=$(tui_menu_get_checked "$menu_id" "$cursor")
+                    if [ "$checked" = "true" ]; then
+                        tui_menu_set_checked "$menu_id" "$cursor" "false"
+                    else
+                        tui_menu_set_checked "$menu_id" "$cursor" "true"
+                    fi
                 fi
                 ;;
-            $'\n' | $'\r' | '')  # Enter 确认（raw 模式下 Enter 发送 \r，但 read 可能返回空）
-                # 调试：输出勾选状态
+            $'\n' | $'\r' | '')  # Enter 确认
                 if [ -n "${TUI_DEBUG:-}" ]; then
                     echo "[DEBUG] Enter pressed" >&2
                 fi
 
-                # 获取结果：支持勾选式（CHECKED:index）和配置式（VALUE:index:value）
+                local mode="${TUI_MENU_MODE[$menu_id]:-multi}"
                 local i=0
                 local result=""
-                local add_newline=false
 
-                # 读取所有数组
-                IFS='|' read -ra VALUES <<< "${TUI_MENU_ITEMS_VALUE[$menu_id]:-}"
-                IFS='|' read -ra CHECKED <<< "${TUI_MENU_ITEMS_CHECKED[$menu_id]:-}"
-                IFS='|' read -ra TYPES <<< "${TUI_MENU_ITEMS_TYPE[$menu_id]:-}"
-                IFS='|' read -ra CURRENTS <<< "${TUI_MENU_ITEMS_CURRENT[$menu_id]:-}"
-
-                for val in "${VALUES[@]}"; do
-                    local item_type="${TYPES[$i]:-checkbox}"
-                    if [ "$item_type" = "options" ]; then
-                        # 配置式选项：VALUE:index:value
-                        local current="${CURRENTS[$i]:-}"
-                        if [ -n "$result" ]; then
-                            result="$result"$'\n'"VALUE:$i:$current"
-                        else
-                            result="VALUE:$i:$current"
-                        fi
-                    elif [ "${CHECKED[$i]:-false}" = "true" ]; then
-                        # 勾选式选项（已勾选）：CHECKED:index
-                        if [ -n "$result" ]; then
-                            result="$result"$'\n'"CHECKED:$i"
-                        else
-                            result="CHECKED:$i"
-                        fi
-                    fi
-                    i=$((i + 1))
-                done
-
-                # 如果没有勾选任何项且没有配置式选项，返回当前选中的值
-                if [ -z "$result" ]; then
+                if [ "$mode" = "radio" ]; then
+                    # 单选模式：返回光标位置
                     local cursor="${TUI_MENU_CURSOR[$menu_id]:-0}"
-                    local cursor_type
-                    cursor_type=$(echo "$TYPES" | cut -d'|' -f$((cursor + 1)))
-                    if [ "$cursor_type" = "options" ]; then
-                        local current
-                        current=$(tui_menu_get_current "$menu_id" "$cursor")
-                        result="VALUE:$cursor:$current"
-                    else
-                        result="UNCHECKED:$cursor"
+                    result="SELECTED:$cursor"
+                else
+                    # 多选模式：收集勾选项和配置值
+                    IFS='|' read -ra VALUES <<< "${TUI_MENU_ITEMS_VALUE[$menu_id]:-}"
+                    IFS='|' read -ra CHECKED <<< "${TUI_MENU_ITEMS_CHECKED[$menu_id]:-}"
+                    IFS='|' read -ra TYPES <<< "${TUI_MENU_ITEMS_TYPE[$menu_id]:-}"
+                    IFS='|' read -ra CURRENTS <<< "${TUI_MENU_ITEMS_CURRENT[$menu_id]:-}"
+
+                    for val in "${VALUES[@]}"; do
+                        local item_type="${TYPES[$i]:-checkbox}"
+                        if [ "$item_type" = "options" ]; then
+                            local current="${CURRENTS[$i]:-}"
+                            if [ -n "$result" ]; then
+                                result="$result"$'\n'"VALUE:$i:$current"
+                            else
+                                result="VALUE:$i:$current"
+                            fi
+                        elif [ "${CHECKED[$i]:-false}" = "true" ]; then
+                            if [ -n "$result" ]; then
+                                result="$result"$'\n'"CHECKED:$i"
+                            else
+                                result="CHECKED:$i"
+                            fi
+                        fi
+                        i=$((i + 1))
+                    done
+
+                    if [ -z "$result" ]; then
+                        local cursor="${TUI_MENU_CURSOR[$menu_id]:-0}"
+                        local cursor_type
+                        cursor_type=$(echo "$TYPES" | cut -d'|' -f$((cursor + 1)))
+                        if [ "$cursor_type" = "options" ]; then
+                            local current
+                            current=$(tui_menu_get_current "$menu_id" "$cursor")
+                            result="VALUE:$cursor:$current"
+                        else
+                            result="UNCHECKED:$cursor"
+                        fi
                     fi
                 fi
 
@@ -818,7 +852,8 @@ trap _tui_trap_exit EXIT INT TERM
 
 # 解析 tui_menu_run 返回值
 # 用法：tui_parse_result <result> <type>
-# type: "CHECKED" 返回所有勾选的索引
+# type: "SELECTED" 返回单选模式选中的索引
+#       "CHECKED" 返回所有勾选的索引
 #       "VALUE" 返回所有配置式的 index:value
 #       "ALL" 返回所有结果（每行一个）
 tui_parse_result() {
@@ -831,6 +866,11 @@ tui_parse_result() {
             continue
         fi
         case "$type" in
+            SELECTED)
+                if [[ "$line" == SELECTED:* ]]; then
+                    output="${line#SELECTED:}"
+                fi
+                ;;
             CHECKED)
                 if [[ "$line" == CHECKED:* ]]; then
                     local idx="${line#CHECKED:}"

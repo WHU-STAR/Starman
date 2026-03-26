@@ -271,22 +271,22 @@ guide_root_user() {
         printf '  - 后续运维需要在 root 和非 root 用户之间切换\n\n'
         printf '请选择以下操作：\n\n'
 
-        # 创建 TUI 菜单（单选：全部不预勾选，通过光标位置选择）
+        # 创建 TUI 单选菜单
         tui_menu_create "选择操作"
         local menu_id="$TUI_LAST_MENU_ID"
+        tui_menu_set_radio "$menu_id"
         tui_menu_add "$menu_id" "新建 sudo 用户并迁移项目" "create_user" false
         tui_menu_add "$menu_id" "切换到已有用户" "switch_user" false
         tui_menu_add "$menu_id" "取消安装" "cancel" false
 
-        # 运行菜单
         tui_menu_run "$menu_id"
         local result="$TUI_LAST_RESULT"
 
-        # 解析结果：TUI 返回 UNCHECKED:<index> 或 CHECKED:<index>
+        # radio 模式返回 SELECTED:<index>
         local selected_idx=""
         case "$result" in
-            UNCHECKED:*|CHECKED:*)
-                selected_idx="${result##*:}"
+            SELECTED:*)
+                selected_idx="${result#SELECTED:}"
                 ;;
             "")
                 continue
