@@ -96,20 +96,31 @@ require_non_root() {
 
 # 检测当前用户是否有 sudo 权限
 require_sudo() {
+    if [ "$(id -u)" -eq 0 ]; then
+        return 0
+    fi
+
     if ! command -v sudo &>/dev/null; then
         die "未找到 sudo 命令。请先安装 sudo 或以 root 用户执行。" 1
     fi
 
-    if ! sudo -n true 2>/dev/null; then
-        # 需要密码，检查是否可交互
-        if [ -t 0 ]; then
-            # 交互模式，可以输入密码
-            sudo -v || die "sudo 验证失败。" 1
-        else
-            # 非交互模式，无法输入密码
-            die "需要 sudo 权限但无法交互验证。请以交互模式运行或配置免密 sudo。" 1
-        fi
+    # 免密 sudo 可用
+    if sudo -n true 2>/dev/null; then
+        return 0
     fi
+
+    # 用户在 sudo/wheel 组中（实际 sudo 时再提示密码）
+    if id -nG 2>/dev/null | grep -qwE 'sudo|wheel|admin'; then
+        return 0
+    fi
+
+    # 有 TTY 时尝试交互验证
+    if [ -t 0 ]; then
+        sudo -v || die "sudo 验证失败。" 1
+        return 0
+    fi
+
+    die "需要 sudo 权限但无法验证。请确保当前用户在 sudo/wheel 组中。" 1
 }
 
 # 检测操作系统类型
