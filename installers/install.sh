@@ -218,12 +218,13 @@ _handoff_to_user() {
     fi
 
     tui_clear
-    log_success "准备就绪！请复制以下命令切换用户并继续安装："
+    log_success "用户 $target_user 已就绪，正在切换..."
+    log_info "切换后请执行以下命令继续安装："
     echo ""
-    printf '  \033[1;32msu - %s -c "bash %s"\033[0m\n' "$target_user" "$target_script"
-    echo ""
+    printf '  \033[1;32mbash %s\033[0m\n\n' "$target_script"
 
-    exit 0
+    # 直接 su 进入用户的交互式 shell，用户在里面手动执行上面的命令
+    exec su - "$target_user"
 }
 
 guide_root_user() {
