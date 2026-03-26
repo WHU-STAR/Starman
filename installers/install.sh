@@ -37,7 +37,8 @@ GITEE_RAW="$GITEE_BASE/raw/master"
 GITHUB_RAW="https://raw.githubusercontent.com/STAR-Organization/starman/master"
 
 # Staging directory for install scripts (cleaned up after completion)
-STAGING_DIR="/opt/starman-install"
+# 使用用户 home 目录避免 sudo 权限问题（su 切换用户后无 TTY 输入密码）
+STAGING_DIR="${HOME}/.starman-install"
 
 # Files needed for installation (relative to repo root)
 INSTALL_FILES=(
@@ -534,10 +535,9 @@ download_install_files() {
         return 1
     fi
 
-    # 部署到 staging 目录
-    _sudo_cmd mkdir -p "$STAGING_DIR"
-    _sudo_cmd cp -r "$tmp_dir/"* "$STAGING_DIR/"
-    _sudo_cmd chown -R "$(whoami):$(whoami)" "$STAGING_DIR"
+    # 部署到 staging 目录（用户 home 下，无需 sudo）
+    mkdir -p "$STAGING_DIR"
+    cp -r "$tmp_dir/"* "$STAGING_DIR/"
     chmod +x "$STAGING_DIR/install.sh"
 
     rm -rf "$tmp_dir"
@@ -586,8 +586,8 @@ show_offline_guide() {
         echo "  $GITEE_RAW/$file"
     done
     echo ""
-    echo "将文件按目录结构放入目标机器的 $STAGING_DIR/ 下，然后执行："
-    echo "  cd $STAGING_DIR && bash install.sh"
+    echo "将文件按目录结构放入目标机器的 ~/.starman-install/ 下，然后执行："
+    echo "  cd ~/.starman-install && bash install.sh"
     echo ""
 }
 
