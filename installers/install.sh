@@ -55,19 +55,33 @@ get_script_dir() {
     echo "$dir"
 }
 
-# Source TUI library
+# Source TUI library from Gitee if not available locally
 SCRIPT_DIR="$(get_script_dir)"
 if [ -f "$SCRIPT_DIR/../scripts/lib/tui.sh" ]; then
     source "$SCRIPT_DIR/../scripts/lib/tui.sh"
 elif [ -f "/home/adrian/code/misc/starman/scripts/lib/tui.sh" ]; then
     source /home/adrian/code/misc/starman/scripts/lib/tui.sh
+else
+    # Download from Gitee
+    TUI_TMP=$(mktemp)/tui.sh
+    if curl -fsSL "https://gitee.com/ajgamma/starman/raw/master/scripts/lib/tui.sh" -o "$TUI_TMP" 2>/dev/null; then
+        source "$TUI_TMP"
+        rm -f "$TUI_TMP"
+    fi
 fi
 
-# Source common library
+# Source common library from Gitee if not available locally
 if [ -f "$SCRIPT_DIR/../scripts/lib/common.sh" ]; then
     source "$SCRIPT_DIR/../scripts/lib/common.sh"
 elif [ -f "/home/adrian/code/misc/starman/scripts/lib/common.sh" ]; then
     source /home/adrian/code/misc/starman/scripts/lib/common.sh
+else
+    # Download from Gitee
+    COMMON_TMP=$(mktemp)/common.sh
+    if curl -fsSL "https://gitee.com/ajgamma/starman/raw/master/scripts/lib/common.sh" -o "$COMMON_TMP" 2>/dev/null; then
+        source "$COMMON_TMP"
+        rm -f "$COMMON_TMP"
+    fi
 fi
 
 log_info() {
