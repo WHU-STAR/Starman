@@ -59,28 +59,30 @@ get_script_dir() {
 SCRIPT_DIR="$(get_script_dir)"
 if [ -f "$SCRIPT_DIR/../scripts/lib/tui.sh" ]; then
     source "$SCRIPT_DIR/../scripts/lib/tui.sh"
-elif [ -f "/home/adrian/code/misc/starman/scripts/lib/tui.sh" ]; then
-    source /home/adrian/code/misc/starman/scripts/lib/tui.sh
 else
     # Download from Gitee
-    TUI_TMP=$(mktemp)/tui.sh
-    if curl -fsSL "https://gitee.com/ajgamma/starman/raw/master/scripts/lib/tui.sh" -o "$TUI_TMP" 2>/dev/null; then
+    TUI_TMP="/tmp/starman_tui_$$.sh"
+    if curl -fsSL "https://gitee.com/ajgamma/starman/raw/master/scripts/lib/tui.sh" -o "$TUI_TMP"; then
         source "$TUI_TMP"
         rm -f "$TUI_TMP"
+    else
+        log_warn "无法下载 tui.sh，TUI 功能可能不可用"
+        rm -f "$TUI_TMP" 2>/dev/null
     fi
 fi
 
 # Source common library from Gitee if not available locally
 if [ -f "$SCRIPT_DIR/../scripts/lib/common.sh" ]; then
     source "$SCRIPT_DIR/../scripts/lib/common.sh"
-elif [ -f "/home/adrian/code/misc/starman/scripts/lib/common.sh" ]; then
-    source /home/adrian/code/misc/starman/scripts/lib/common.sh
 else
     # Download from Gitee
-    COMMON_TMP=$(mktemp)/common.sh
-    if curl -fsSL "https://gitee.com/ajgamma/starman/raw/master/scripts/lib/common.sh" -o "$COMMON_TMP" 2>/dev/null; then
+    COMMON_TMP="/tmp/starman_common_$$.sh"
+    if curl -fsSL "https://gitee.com/ajgamma/starman/raw/master/scripts/lib/common.sh" -o "$COMMON_TMP"; then
         source "$COMMON_TMP"
         rm -f "$COMMON_TMP"
+    else
+        log_warn "无法下载 common.sh，部分功能可能不可用"
+        rm -f "$COMMON_TMP" 2>/dev/null
     fi
 fi
 
