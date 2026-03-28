@@ -73,6 +73,9 @@ declare -A TUI_MENU_CURSOR
 declare -A TUI_MENU_COUNT
 declare -A TUI_MENU_MODE        # 菜单模式："multi"（多选，默认）或 "radio"（单选）
 
+# 菜单项数 >= 此值时，上下键仅增量重绘两行，减轻卡顿（可 export TUI_MENU_FAST_MIN 覆盖）
+TUI_MENU_FAST_MIN="${TUI_MENU_FAST_MIN:-8}"
+
 # 检测标志
 TUI_USE_TPUT=false
 TUI_USE_COLOR=true
@@ -497,6 +500,87 @@ _tui_switch_option() {
     tui_menu_set_current "$menu_id" "$cursor" "$new_value"
 }
 
+# 绘制单行菜单项（输出到 stderr）。is_cursor_line：1=光标行高亮
+_tui_menu_draw_item_line() {
+    local menu_id="$1"
+    local i="$2"
+    local is_cursor_line="${3:-0}"
+    local text
+    text="$(tui_menu_get_text "$menu_id" "$i")"
+    local checked
+    checked=$(tui_menu_get_checked "$menu_id" "$i")
+    local item_type
+    item_type=$(echo "${TUI_MENU_ITEMS_TYPE[$menu_id]:-}" | cut -d'|' -f$((i + 1)))
+    local mode="${TUI_MENU_MODE[$menu_id]:-multi}"
+    local status="[ ]"
+    local suffix=""
+
+    if [ "$item_type" = "options" ]; then
+        local current
+        current=$(tui_menu_get_current "$menu_id" "$i")
+        status="[$text]"
+        suffix=" $current <← →>"
+    elif [ "$mode" = "radio" ]; then
+        if [ "$checked" = "true" ]; then
+            status="(●)"
+        else
+            status="( )"
+        fi
+    else
+        if [ "$checked" = "true" ]; then
+            if [ "$TUI_USE_COLOR" = true ]; then
+                status="[✓]"
+            else
+                status="[x]"
+            fi
+        fi
+    fi
+
+    if [ "$is_cursor_line" = "1" ]; then
+        if [ "$TUI_USE_COLOR" = true ]; then
+            if [ "$TUI_USE_TPUT" = "true" ]; then
+                if [ "$item_type" = "options" ]; then
+                    printf '%s> %s%s%s\n' "$TUI_TPUT_REVERSE" "$status" "$suffix" "$TUI_TPUT_RESET" >&2
+                else
+                    printf '%s> %s %s%s\n' "$TUI_TPUT_REVERSE" "$status" "$text" "$TUI_TPUT_RESET" >&2
+                fi
+            else
+                if [ "$item_type" = "options" ]; then
+                    printf '%b> %s%s%b\n' "$TUI_REVERSE" "$status" "$suffix" "$TUI_RESET" >&2
+                else
+                    printf '%b> %s %s%b\n' "$TUI_REVERSE" "$status" "$text" "$TUI_RESET" >&2
+                fi
+            fi
+        else
+            if [ "$item_type" = "options" ]; then
+                printf '> %s%s\n' "$status" "$suffix" >&2
+            else
+                printf '> %s %s\n' "$status" "$text" >&2
+            fi
+        fi
+    else
+        if [ "$item_type" = "options" ]; then
+            printf '  %s%s\n' "$status" "$suffix" >&2
+        else
+            printf '  %s %s\n' "$status" "$text" >&2
+        fi
+    fi
+}
+
+# 仅重绘光标移动时的两行（不 tui_clear），项数多时明显减轻卡顿
+tui_menu_render_delta() {
+    local menu_id="$1"
+    local old_i="$2"
+    local new_i="$3"
+    local row_old=$((3 + old_i))
+    local row_new=$((3 + new_i))
+
+    printf '\033[%s;1H\033[2K' "$row_old" >&2
+    _tui_menu_draw_item_line "$menu_id" "$old_i" 0
+    printf '\033[%s;1H\033[2K' "$row_new" >&2
+    _tui_menu_draw_item_line "$menu_id" "$new_i" 1
+}
+
 # 渲染菜单
 tui_menu_render() {
     local menu_id="$1"
@@ -522,68 +606,12 @@ tui_menu_render() {
     # 打印菜单项
     local i=0
     local mode="${TUI_MENU_MODE[$menu_id]:-multi}"
-    IFS='|' read -ra TEXTS <<< "${TUI_MENU_ITEMS_TEXT[$menu_id]:-}"
-    for text in "${TEXTS[@]}"; do
-        local checked
-        checked=$(tui_menu_get_checked "$menu_id" "$i")
-        local item_type
-        item_type=$(echo "${TUI_MENU_ITEMS_TYPE[$menu_id]:-}" | cut -d'|' -f$((i + 1)))
-        local status="[ ]"
-        local suffix=""
-
-        # 根据类型渲染不同的格式
-        if [ "$item_type" = "options" ]; then
-            local current
-            current=$(tui_menu_get_current "$menu_id" "$i")
-            status="[$text]"
-            suffix=" $current <← →>"
-        elif [ "$mode" = "radio" ]; then
-            if [ "$checked" = "true" ]; then
-                status="(●)"
-            else
-                status="( )"
-            fi
-        else
-            if [ "$checked" = "true" ]; then
-                if [ "$TUI_USE_COLOR" = true ]; then
-                    status="[✓]"
-                else
-                    status="[x]"
-                fi
-            fi
-        fi
-
-        # 高亮当前选中项
+    while [ "$i" -lt "$count" ]; do
         if [ "$i" -eq "$cursor" ]; then
-            if [ "$TUI_USE_COLOR" = true ]; then
-                if [ "$TUI_USE_TPUT" = "true" ]; then
-                    if [ "$item_type" = "options" ]; then
-                        printf '%s> %s%s%s\n' "$TUI_TPUT_REVERSE" "$status" "$suffix" "$TUI_TPUT_RESET"
-                    else
-                        printf '%s> %s %s%s\n' "$TUI_TPUT_REVERSE" "$status" "$text" "$TUI_TPUT_RESET"
-                    fi
-                else
-                    if [ "$item_type" = "options" ]; then
-                        printf '%b> %s%s%b\n' "$TUI_REVERSE" "$status" "$suffix" "$TUI_RESET"
-                    else
-                        printf '%b> %s %s%b\n' "$TUI_REVERSE" "$status" "$text" "$TUI_RESET"
-                    fi
-                fi
-            else
-                if [ "$item_type" = "options" ]; then
-                    printf '> %s%s\n' "$status" "$suffix"
-                else
-                    printf '> %s %s\n' "$status" "$text"
-                fi
-            fi
+            _tui_menu_draw_item_line "$menu_id" "$i" 1
         else
-            if [ "$item_type" = "options" ]; then
-                printf '  %s%s\n' "$status" "$suffix"
-            else
-                printf '  %s %s\n' "$status" "$text"
-            fi
+            _tui_menu_draw_item_line "$menu_id" "$i" 0
         fi
-
         i=$((i + 1))
     done
 
@@ -649,10 +677,15 @@ tui_menu_run() {
     }
     trap _tui_menu_cleanup EXIT INT TERM
 
+    local _tui_skip_full_render=0
+
     # 主事件循环
     while true; do
-        # 渲染菜单（直接输出到终端）
-        tui_menu_render "$menu_id" >&2
+        # 渲染菜单（增量重绘时会跳过本轮全量 tui_clear）
+        if [ "$_tui_skip_full_render" = 0 ]; then
+            tui_menu_render "$menu_id" >&2
+        fi
+        _tui_skip_full_render=0
 
         # 读取单个字符 - 从 /dev/tty 读取，使用 IFS= read -rn1
         # IFS= 防止空格被 trim，-r 防止反斜杠转义，-n1 读取单字符
@@ -695,20 +728,30 @@ tui_menu_run() {
                 IFS= read -rn1 -t 0.1 seq2 </dev/tty 2>/dev/null
                 case "${seq1}${seq2}" in
                     '[A'|'OA')  # 上键
+                        local _old_c="${TUI_MENU_CURSOR[$menu_id]:-0}"
                         local cursor="${TUI_MENU_CURSOR[$menu_id]:-0}"
                         cursor=$((cursor - 1))
                         if [ "$cursor" -lt 0 ]; then
                             cursor=$((count - 1))
                         fi
                         TUI_MENU_CURSOR["$menu_id"]="$cursor"
+                        if [ "$count" -ge "${TUI_MENU_FAST_MIN:-8}" ] && [ "$_old_c" != "$cursor" ]; then
+                            tui_menu_render_delta "$menu_id" "$_old_c" "$cursor" >&2
+                            _tui_skip_full_render=1
+                        fi
                         ;;
                     '[B'|'OB')  # 下键
+                        local _old_c="${TUI_MENU_CURSOR[$menu_id]:-0}"
                         local cursor="${TUI_MENU_CURSOR[$menu_id]:-0}"
                         cursor=$((cursor + 1))
                         if [ "$cursor" -ge "$count" ]; then
                             cursor=0
                         fi
                         TUI_MENU_CURSOR["$menu_id"]="$cursor"
+                        if [ "$count" -ge "${TUI_MENU_FAST_MIN:-8}" ] && [ "$_old_c" != "$cursor" ]; then
+                            tui_menu_render_delta "$menu_id" "$_old_c" "$cursor" >&2
+                            _tui_skip_full_render=1
+                        fi
                         ;;
                     '[C'|'OC')  # 右键 - 切换下一个选项值
                         _tui_switch_option "$menu_id" 1
@@ -725,20 +768,30 @@ tui_menu_run() {
                 _tui_switch_option "$menu_id" 1
                 ;;
             'k'|'K')  # vim 上移
+                local _old_c="${TUI_MENU_CURSOR[$menu_id]:-0}"
                 local cursor="${TUI_MENU_CURSOR[$menu_id]:-0}"
                 cursor=$((cursor - 1))
                 if [ "$cursor" -lt 0 ]; then
                     cursor=$((count - 1))
                 fi
                 TUI_MENU_CURSOR["$menu_id"]="$cursor"
+                if [ "$count" -ge "${TUI_MENU_FAST_MIN:-8}" ] && [ "$_old_c" != "$cursor" ]; then
+                    tui_menu_render_delta "$menu_id" "$_old_c" "$cursor" >&2
+                    _tui_skip_full_render=1
+                fi
                 ;;
             'j'|'J')  # vim 下移
+                local _old_c="${TUI_MENU_CURSOR[$menu_id]:-0}"
                 local cursor="${TUI_MENU_CURSOR[$menu_id]:-0}"
                 cursor=$((cursor + 1))
                 if [ "$cursor" -ge "$count" ]; then
                     cursor=0
                 fi
                 TUI_MENU_CURSOR["$menu_id"]="$cursor"
+                if [ "$count" -ge "${TUI_MENU_FAST_MIN:-8}" ] && [ "$_old_c" != "$cursor" ]; then
+                    tui_menu_render_delta "$menu_id" "$_old_c" "$cursor" >&2
+                    _tui_skip_full_render=1
+                fi
                 ;;
             $'\x03')  # Ctrl+C 退出
                 tui_clear >&2

@@ -18,6 +18,14 @@
 
 set -e
 
+# 误用「sudo ./installers/install.sh」时 euid=0，但安装设计为普通用户 + 内部 sudo。
+# 若存在 SUDO_USER（通过 sudo 从非 root 提升），则降回实际登录用户再执行，避免走 root 专属引导。
+_self_install="$(readlink -f "${BASH_SOURCE[0]}")"
+if [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+    echo "[INFO] 检测到使用 sudo 调用安装脚本，将切换为实际用户 ${SUDO_USER} 执行（推荐直接运行：./installers/install.sh，勿加 sudo）" >&2
+    exec sudo -u "$SUDO_USER" -- bash "$_self_install" "$@"
+fi
+
 # ============================================================================
 # Global Flags
 # ============================================================================
@@ -47,7 +55,7 @@ INSTALL_FILES=(
     "scripts/lib/pkgmgr.sh"
     "scripts/lib/banners.txt"
     "scripts/steps/packages.sh"
-    "templates/vim.min.snippet"
+    "templates/vimrc_singlefile"
     "templates/tmux.min.snippet"
     "templates/bash.min.snippet"
 )

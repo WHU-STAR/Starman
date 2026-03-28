@@ -145,6 +145,23 @@ pkgmgr_update_with_retry() {
     return 1
 }
 
+# Ubuntu Server 等环境若未启用 universe，cmake 等包不在默认源中
+_starman_ensure_ubuntu_universe_for_optional() {
+    [ "$PKGMGR" = "apt" ] || return 0
+    [ -f /etc/os-release ] || return 0
+    grep -q '^ID=ubuntu' /etc/os-release || return 0
+    if apt-cache show cmake &>/dev/null; then
+        return 0
+    fi
+    log_info "未在 apt 中找到 cmake（通常需启用 universe），尝试启用 universe…"
+    if _starman_sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common 2>/dev/null; then
+        _starman_sudo add-apt-repository -y universe 2>/dev/null || true
+        _starman_pkgmgr_update || true
+    else
+        log_warn "无法安装 software-properties-common；若 cmake 仍失败请手动: sudo add-apt-repository universe && sudo apt-get update"
+    fi
+}
+
 _pkgmgr_install_one_mapped() {
     local canonical="$1"
     local mapped
@@ -230,6 +247,38 @@ install_template_with_backup() {
     _starman_sudo install -m 0644 "$tmp" "$dest"
     rm -f "$tmp"
     log_success "已追加 Starman 配置到 $dest"
+}
+
+# 完整配置文件（如 vimrc）：目标不存在则写入；已含 STARMAN MANAGED 则备份后覆盖以便升级；否则跳过以免覆盖用户自建配置
+install_full_template_with_backup() {
+    local template="$1"
+    local dest="$2"
+    local marker="STARMAN MANAGED"
+
+    if [ ! -f "$template" ]; then
+        log_error "模板不存在：$template"
+        return 1
+    fi
+
+    if [ ! -f "$dest" ]; then
+        _starman_sudo mkdir -p "$(dirname "$dest")"
+        _starman_sudo install -m 0644 "$template" "$dest"
+        log_success "已写入 $dest"
+        return 0
+    fi
+
+    if _starman_sudo grep -qF "$marker" "$dest" 2>/dev/null; then
+        local stamp
+        stamp="$(date +%Y%m%d%H%M%S)"
+        _starman_sudo cp -a "$dest" "${dest}.bak.${stamp}"
+        log_info "已备份 ${dest} -> ${dest}.bak.${stamp}"
+        _starman_sudo install -m 0644 "$template" "$dest"
+        log_success "已更新 Starman 管理的 $dest"
+        return 0
+    fi
+
+    log_warn "目标已存在且非 Starman 管理，跳过：$dest"
+    return 0
 }
 
 _vim_template_target() {
@@ -372,7 +421,7 @@ _run_templates_interactive() {
         local key="${keys[$idx]}"
         case "$key" in
             vim)
-                install_template_with_backup "$STARMAN_ROOT/templates/vim.min.snippet" "$vim_target"
+                install_full_template_with_backup "$STARMAN_ROOT/templates/vimrc_singlefile" "$vim_target"
                 ;;
             tmux)
                 install_template_with_backup "$STARMAN_ROOT/templates/tmux.min.snippet" "/etc/tmux.conf"
@@ -404,6 +453,8 @@ run_step_packages() {
     if ! pkgmgr_update_with_retry 3; then
         return 1
     fi
+
+    _starman_ensure_ubuntu_universe_for_optional
 
     log_info "安装基础工具包..."
     _pkgmgr_install_list_mapped "${PACKAGES_BASE[@]}" || return 1

@@ -1,0 +1,276 @@
+" STARMAN MANAGED vimrc (full template, no plugins required)
+" 基于常用单文件配置精简；与 Starman 装机流程一致时由脚本覆盖更新。
+
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+" => General
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+set history=500
+filetype plugin on
+filetype indent on
+
+set autoread
+au FocusGained,BufEnter * silent! checktime
+
+let mapleader = " "
+
+command! W execute 'w !sudo tee % > /dev/null' <bar> edit!
+
+if has('termguicolors')
+  set termguicolors
+endif
+set timeoutlen=200
+set number
+set updatetime=300
+set relativenumber
+set showmode
+set showtabline=2
+set smartcase
+set smartindent
+set splitbelow
+set splitright
+set undofile
+set nowritebackup
+set shiftwidth=4
+set wrap
+set nolinebreak
+set scrolloff=8
+set sidescrolloff=8
+set foldenable
+set mouse=a
+set pumheight=15
+set nospell
+set spelllang=en_us,cjk
+
+nnoremap <leader>u :e $MYVIMRC<CR>
+nnoremap <leader>ms <cmd>mksession! .vimsession.vim<cr>
+nnoremap <leader>ml <cmd>source .vimsession.vim<cr>
+
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+" => VIM user interface
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+set so=7
+
+let $LANG='en'
+set langmenu=en
+silent! source $VIMRUNTIME/delmenu.vim
+silent! source $VIMRUNTIME/menu.vim
+
+set wildmenu
+set wildignore=*.o,*~,*.pyc
+if has("win16") || has("win32")
+    set wildignore+=.git\*,.hg\*,.svn\*
+else
+    set wildignore+=*/.git/*,*/.hg/*,*/.svn/*,*/.DS_Store
+endif
+
+set ruler
+set cmdheight=2
+set hid
+
+set backspace=eol,start,indent
+set whichwrap+=<,>,h,l
+
+set ignorecase
+set smartcase
+set hlsearch
+set incsearch
+set lazyredraw
+set magic
+set showmatch
+set mat=2
+
+set noerrorbells
+set novisualbell
+set t_vb=
+set tm=500
+
+if has("gui_macvim")
+    autocmd GUIEnter * set vb t_vb=
+endif
+
+set foldcolumn=1
+
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+" => Colors and Fonts
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+syntax enable
+set regexpengine=0
+
+if $COLORTERM == 'gnome-terminal'
+    set t_Co=256
+endif
+
+for scheme in ['onedark', 'retrobox', 'desert', 'unokai', 'slate', 'default']
+    try
+        execute 'colorscheme' scheme
+        break
+    catch
+    endtry
+endfor
+
+set background=dark
+
+if has("gui_running")
+    set guioptions-=T
+    set guioptions-=e
+    set t_Co=256
+    set guitablabel=%M\ %t
+endif
+
+set encoding=utf8
+set ffs=unix,dos,mac
+
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+" => Files, backups and undo
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+set nobackup
+set nowb
+set noswapfile
+
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+" => Text, tab and indent related
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+set expandtab
+set smarttab
+set shiftwidth=4
+set tabstop=4
+set lbr
+set tw=500
+set ai
+set si
+set wrap
+
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+" => Visual mode related
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+vnoremap <silent> * :<C-u>call VisualSelection('', '')<CR>/<C-R>=@/<CR><CR>
+vnoremap <silent> # :<C-u>call VisualSelection('', '')<CR>?<C-R>=@/<CR><CR>
+
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+" => Moving around, tabs, windows and buffers
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+map <silent> <leader>h :noh<cr>
+
+map <leader>cc :bdelete!<cr>
+
+nnoremap [b :bprevious<CR>
+nnoremap ]b :bnext<CR>
+nnoremap <leader>e :Lexplore<CR>
+
+nnoremap <leader>y :%+y<cr>
+
+let g:lasttab = 1
+nmap <leader>tl :exe "tabn ".g:lasttab<CR>
+au TabLeave * let g:lasttab = tabpagenr()
+
+try
+  set switchbuf=useopen,usetab,newtab
+  set stal=2
+catch
+endtry
+
+au BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$") | exe "normal! g'\"" | endif
+
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+" => Status line
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+set laststatus=2
+set statusline=\ %{HasPaste()}%F%m%r%h\ %w\ \ CWD:\ %r%{getcwd()}%h\ \ \ Line:\ %l\ \ Column:\ %c
+
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+" => Editing mappings
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+xmap J :m '>+1<CR>gv=gv
+xmap K :m '<-2<CR>gv=gv
+
+inoremap <C-f> <Right>
+inoremap <C-b> <Left>
+inoremap <C-a> <Home>
+inoremap <C-e> <End>
+nnoremap <C-q> :bd!<CR>
+
+set clipboard=unnamedplus
+
+nnoremap <C-Up> :resize -2<CR>
+nnoremap <C-Down> :resize +2<CR>
+nnoremap <C-Left> :vertical resize -2<CR>
+nnoremap <C-Right> :vertical resize +2<CR>
+
+nnoremap <up> g<up>
+nnoremap <down> g<down>
+inoremap <up> <C-O>g<up>
+inoremap <down> <C-O>g<down>
+
+fun! CleanExtraSpaces()
+    let save_cursor = getpos(".")
+    let old_query = getreg('/')
+    silent! %s/\s\+$//e
+    call setpos('.', save_cursor)
+    call setreg('/', old_query)
+endfun
+
+if has("autocmd")
+    autocmd BufWritePre *.txt,*.js,*.py,*.wiki,*.sh,*.coffee :call CleanExtraSpaces()
+endif
+
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+" => Spell checking
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+map <leader>sp :setlocal spell!<cr>
+set fileencodings=utf-8,ucs-bom,gbk,cp936,gb2312,gb18030
+
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+" => Misc
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+noremap <Leader>m mmHmt:%s/<C-V><cr>//ge<cr>'tzt'm
+
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+" => Helper functions
+"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+function! HasPaste()
+    if &paste
+        return 'PASTE MODE  '
+    endif
+    return ''
+endfunction
+
+command! Bclose call <SID>BufcloseCloseIt()
+function! <SID>BufcloseCloseIt()
+    let l:currentBufNum = bufnr("%")
+    let l:alternateBufNum = bufnr("#")
+
+    if buflisted(l:alternateBufNum)
+        buffer #
+    else
+        bnext
+    endif
+
+    if bufnr("%") == l:currentBufNum
+        new
+    endif
+
+    if buflisted(l:currentBufNum)
+        execute("bdelete! ".l:currentBufNum)
+    endif
+endfunction
+
+function! CmdLine(str)
+    call feedkeys(":" . a:str)
+endfunction
+
+function! VisualSelection(direction, extra_filter) range
+    let l:saved_reg = @"
+    execute "normal! vgvy"
+
+    let l:pattern = escape(@", "\\/.*'$^~[]")
+    let l:pattern = substitute(l:pattern, "\n$", "", "")
+
+    if a:direction == 'gv'
+        call CmdLine("Ack '" . l:pattern . "' " )
+    elseif a:direction == 'replace'
+        call CmdLine("%s" . '/'. l:pattern . '/')
+    endif
+
+    let @/ = l:pattern
+    let @" = l:saved_reg
+endfunction
