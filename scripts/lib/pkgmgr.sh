@@ -172,6 +172,12 @@ pkgmgr_map_name() {
         apt:fd)
             echo "fd-find"
             ;;
+        apt:docker)
+            echo "docker.io"
+            ;;
+        yum:docker|dnf:docker|zypper:docker)
+            echo "docker"
+            ;;
         *)
             echo "$pkg"
             ;;

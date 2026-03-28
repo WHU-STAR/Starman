@@ -54,6 +54,17 @@ values=$(tui_parse_result "$result" "VALUE")
 
 完整示例参考 `examples/tui-env-demo.sh`。
 
+### 默认编辑器（EDITOR）
+
+安装脚本在交互模式下会询问默认编辑器，选项与装机流程一致：
+
+1. vim（默认）
+2. nvim（neovim）
+3. nano
+4. emacs
+
+选择结果写入 `/etc/profile.d/starman-editor.sh`（`EDITOR` / `VISUAL`）。
+
 ### 系统管理
 
 - 快速配置系统环境

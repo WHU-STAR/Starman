@@ -46,6 +46,10 @@ INSTALL_FILES=(
     "scripts/lib/common.sh"
     "scripts/lib/pkgmgr.sh"
     "scripts/lib/banners.txt"
+    "scripts/steps/packages.sh"
+    "templates/vim.min.snippet"
+    "templates/tmux.min.snippet"
+    "templates/bash.min.snippet"
 )
 
 # Colors for output

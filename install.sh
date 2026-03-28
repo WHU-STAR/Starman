@@ -51,15 +51,21 @@ if [ -f "$SCRIPT_DIR/scripts/lib/pkgmgr.sh" ]; then
     source "$SCRIPT_DIR/scripts/lib/pkgmgr.sh"
 fi
 
+# 软件包与配置步骤（OpenSpec: install-script-packages-config）
+if [ -f "$SCRIPT_DIR/scripts/steps/packages.sh" ]; then
+    # shellcheck source=scripts/steps/packages.sh
+    source "$SCRIPT_DIR/scripts/steps/packages.sh"
+fi
+
 # ============================================================================
-# 安装步骤函数（骨架，由子 change 实现）
+# 安装步骤函数
 # ============================================================================
 
-run_step_packages() {
-    log_info "正在检测并安装系统包..."
-    # TODO: 由子 change 实现完整的包管理逻辑
-    log_success "系统包检测完成"
-}
+if ! declare -F run_step_packages >/dev/null 2>&1; then
+    run_step_packages() {
+        log_warn "未找到 scripts/steps/packages.sh，跳过软件包步骤"
+    }
+fi
 
 run_step_disk() {
     log_info "正在检测磁盘空间..."
