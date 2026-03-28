@@ -89,13 +89,18 @@ drive_interactive_install() {
             sleep 1
         fi
 
-        # 仅在捕获区**末尾**判断完成，避免 tmux 长滚动区内旧次安装的 Complete 误判
+        # 仅在捕获区**末尾**判断完成，避免长滚动区内旧次 Complete 误判；匹配当前 install 日志关键词
         local tailpane
-        tailpane="$(echo "$pane" | tail -n 45)"
+        tailpane="$(echo "$pane" | tail -n 50)"
         if echo "$tailpane" | grep -q '=== Installation Complete ===' \
             && echo "$tailpane" | grep -qE '基础工具包已处理|软件包与配置步骤完成'; then
             log "${session}: 检测到 Installation Complete（窗口末尾与本轮日志一致）"
             return 0
+        fi
+
+        # 重定向到文件时便于观察：每约 60s 打一行心跳
+        if [ $((i % 30)) -eq 0 ] && [ "$i" -gt 0 ]; then
+            log "${session}: 仍等待安装/TUI… (${i}/${max} 轮)"
         fi
 
         i=$((i + 1))
