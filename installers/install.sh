@@ -43,6 +43,11 @@ GITEE_BASE="https://gitee.com/ajgamma/starman"
 GITEE_RAW="${STARMAN_GITEE_RAW:-$GITEE_BASE/raw/master}"
 GITHUB_RAW="https://raw.githubusercontent.com/STAR-Organization/starman/master"
 
+# starman CLI 预编译包（可选下载；与 crates/starman/README.md 约定一致）
+# Release tarball 命名：starman-<arch>-unknown-linux-gnu.tar.gz
+# <arch>：x86_64、aarch64（与 uname -m 的 arm64/aarch64 映射见该 README）
+# 可选环境变量：STARMAN_CLI_TARBALL_URL（完整 URL）、STARMAN_CLI_SHA256（校验）
+
 # Staging directory for install scripts (cleaned up after completion)
 # 使用用户 home 目录避免 sudo 权限问题（su 切换用户后无 TTY 输入密码）
 STAGING_DIR="${HOME}/.starman-install"
@@ -53,12 +58,15 @@ INSTALL_FILES=(
     "scripts/lib/tui.sh"
     "scripts/lib/common.sh"
     "scripts/lib/pkgmgr.sh"
+    "scripts/lib/starman_state.sh"
     "scripts/lib/banners.txt"
     "scripts/steps/packages.sh"
     "scripts/steps/disk_lab.sh"
     "scripts/steps/brew.sh"
     "scripts/steps/ssh.sh"
+    "scripts/steps/mihomo.sh"
     "templates/ssh/sshd_snippet.conf"
+    "templates/mihomo/config.yaml"
     "templates/vimrc_singlefile"
     "templates/tmux.min.snippet"
     "templates/bash.min.snippet"

@@ -163,7 +163,7 @@ run_step_disk_lab() {
 
     if ! declare -F tui_menu_create &>/dev/null; then
         log_warn "TUI 未加载，跳过数据盘与 lab"
-        return 0
+        return 3
     fi
 
     tui_clear
@@ -179,7 +179,7 @@ run_step_disk_lab() {
         SELECTED:1) ;;
         *)
             log_warn "已跳过数据盘；无挂载点，不创建 lab share"
-            return 0
+            return 3
             ;;
     esac
 
@@ -187,7 +187,7 @@ run_step_disk_lab() {
     candidates="$(_disk_lab_list_candidates)"
     if [ -z "$candidates" ]; then
         log_warn "未检测到未挂载的候选块设备，跳过格式化与 lab share"
-        return 0
+        return 3
     fi
 
     local -a devs=()
@@ -199,7 +199,7 @@ run_step_disk_lab() {
     dev="$(try_fzf_or_menu "选择要格式化的块设备" "${devs[@]}")"
     if [ -z "$dev" ]; then
         log_warn "未选择设备，已取消"
-        return 0
+        return 3
     fi
 
     local fstype
@@ -221,7 +221,7 @@ run_step_disk_lab() {
     read -r -p "确认请输入大写 YES: " confirm
     if [ "$confirm" != "YES" ]; then
         log_warn "未确认，已取消数据盘步骤"
-        return 0
+        return 3
     fi
 
     case "$fstype" in

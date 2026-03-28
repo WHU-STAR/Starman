@@ -142,7 +142,7 @@ run_step_ssh() {
 
     if ! command -v sshd &>/dev/null; then
         log_warn "未找到 sshd，跳过 SSH 步骤"
-        return 0
+        return 3
     fi
 
     if ! command -v sudo &>/dev/null && [ "$(id -u)" -ne 0 ]; then
@@ -159,7 +159,7 @@ run_step_ssh() {
 
     if ! declare -F tui_menu_create &>/dev/null; then
         log_warn "TUI 未加载，跳过 SSH 步骤"
-        return 0
+        return 3
     fi
 
     tui_clear
@@ -175,7 +175,7 @@ run_step_ssh() {
         SELECTED:1) ;;
         *)
             log_warn "已跳过 SSH 服务端步骤"
-            return 0
+            return 3
             ;;
     esac
 

@@ -292,7 +292,7 @@ run_step_brew() {
 
     if ! declare -F tui_menu_create &>/dev/null; then
         log_warn "TUI 未加载，跳过 Linuxbrew"
-        return 0
+        return 3
     fi
 
     tui_clear
@@ -308,7 +308,7 @@ run_step_brew() {
         SELECTED:1) ;;
         *)
             log_warn "已跳过 Linuxbrew"
-            return 0
+            return 3
             ;;
     esac
 

@@ -51,6 +51,12 @@ if [ -f "$SCRIPT_DIR/scripts/lib/pkgmgr.sh" ]; then
     source "$SCRIPT_DIR/scripts/lib/pkgmgr.sh"
 fi
 
+# 装机状态（续跑；OpenSpec: install-script-mihomo）
+if [ -f "$SCRIPT_DIR/scripts/lib/starman_state.sh" ]; then
+    # shellcheck source=scripts/lib/starman_state.sh
+    source "$SCRIPT_DIR/scripts/lib/starman_state.sh"
+fi
+
 # 软件包与配置步骤（OpenSpec: install-script-packages-config）
 if [ -f "$SCRIPT_DIR/scripts/steps/packages.sh" ]; then
     # shellcheck source=scripts/steps/packages.sh
@@ -75,6 +81,12 @@ if [ -f "$SCRIPT_DIR/scripts/steps/ssh.sh" ]; then
     source "$SCRIPT_DIR/scripts/steps/ssh.sh"
 fi
 
+# mihomo 与 systemd（OpenSpec: install-script-mihomo）
+if [ -f "$SCRIPT_DIR/scripts/steps/mihomo.sh" ]; then
+    # shellcheck source=scripts/steps/mihomo.sh
+    source "$SCRIPT_DIR/scripts/steps/mihomo.sh"
+fi
+
 # ============================================================================
 # 安装步骤函数
 # ============================================================================
@@ -82,24 +94,35 @@ fi
 if ! declare -F run_step_packages >/dev/null 2>&1; then
     run_step_packages() {
         log_warn "未找到 scripts/steps/packages.sh，跳过软件包步骤"
+        return 3
     }
 fi
 
 if ! declare -F run_step_disk_lab >/dev/null 2>&1; then
     run_step_disk_lab() {
         log_warn "未找到 scripts/steps/disk_lab.sh，跳过数据盘与 lab 步骤"
+        return 3
     }
 fi
 
 if ! declare -F run_step_brew >/dev/null 2>&1; then
     run_step_brew() {
         log_warn "未找到 scripts/steps/brew.sh，跳过 Linuxbrew 步骤"
+        return 3
     }
 fi
 
 if ! declare -F run_step_ssh >/dev/null 2>&1; then
     run_step_ssh() {
         log_warn "未找到 scripts/steps/ssh.sh，跳过 SSH 服务端步骤"
+        return 3
+    }
+fi
+
+if ! declare -F run_step_mihomo >/dev/null 2>&1; then
+    run_step_mihomo() {
+        log_warn "未找到 scripts/steps/mihomo.sh，跳过 mihomo 步骤"
+        return 3
     }
 fi
 
@@ -131,14 +154,28 @@ main() {
     # 检测 sudo 权限
     require_sudo
 
-    # 执行安装步骤
+    # 装机状态与续跑菜单（需 python3 + TUI；无进度时等价于完整安装）
+    if declare -F starman_install_flow_prompt &>/dev/null; then
+        starman_install_flow_prompt
+    fi
+
+    # 执行安装步骤（续跑模式下跳过状态中已完成的步骤）
     log_info "开始执行安装步骤..."
     echo ""
 
-    run_step_packages
-    run_step_disk_lab
-    run_step_brew
-    run_step_ssh
+    if declare -F starman_run_step_maybe_skip &>/dev/null; then
+        starman_run_step_maybe_skip packages run_step_packages
+        starman_run_step_maybe_skip disk_lab run_step_disk_lab
+        starman_run_step_maybe_skip brew run_step_brew
+        starman_run_step_maybe_skip ssh run_step_ssh
+        starman_run_step_maybe_skip mihomo run_step_mihomo
+    else
+        run_step_packages
+        run_step_disk_lab
+        run_step_brew
+        run_step_ssh
+        run_step_mihomo
+    fi
 
     echo ""
     log_success "Starman 系统配置完成"
