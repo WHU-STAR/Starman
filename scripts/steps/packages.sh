@@ -17,10 +17,13 @@ PACKAGES_BASE=(
     wget
     vim
     tmux
+    zsh
     ca-certificates
     openssh-client
     rsync
     unzip
+    net-tools
+    tar
 )
 
 # 默认可选：默认勾选安装
@@ -30,14 +33,20 @@ PACKAGES_OPT_DEFAULT_ON=(
     jq
     ripgrep
     fd
+    cmake
+    gdb
+    nvtop
+    iotop
+    pigz
 )
 
-# 默认可选：默认不勾选（重包或开发向）
+# 默认可选：默认不勾选（重包或开发向、或服务类需自行配置）
 PACKAGES_OPT_DEFAULT_OFF=(
     docker
     neovim
     fzf
     build-essential
+    fail2ban
 )
 
 # ============================================================================
@@ -234,35 +243,40 @@ _vim_template_target() {
 }
 
 # ============================================================================
-# EDITOR（README 四选项：vim / nvim / nano / emacs）
+# EDITOR（TUI 单选，文案与 README 一致）
 # ============================================================================
 
 run_step_editor() {
-    echo ""
-    log_info "请选择默认编辑器（EDITOR / VISUAL，默认 vim）："
-    echo "  1) vim"
-    echo "  2) nvim（neovim）"
-    echo "  3) nano"
-    echo "  4) emacs"
-    echo ""
-
-    local choice="1"
-    if [ -t 0 ]; then
-        read -rp "请输入选项 [1-4，默认 1]: " choice
-    fi
-    choice="${choice:-1}"
-
     local ed="vim"
-    case "$choice" in
-        1) ed="vim" ;;
-        2) ed="nvim" ;;
-        3) ed="nano" ;;
-        4) ed="emacs" ;;
-        *)
-            log_warn "无效选项，使用默认 vim"
-            ed="vim"
-            ;;
-    esac
+
+    if [ -t 0 ] && [ -t 1 ]; then
+        tui_clear
+        tui_menu_create "默认编辑器 (EDITOR / VISUAL)"
+        local mid="$TUI_LAST_MENU_ID"
+        tui_menu_set_radio "$mid"
+        tui_menu_add "$mid" "vim (you really should know how to use it)" "vim" true
+        tui_menu_add "$mid" "nano (what are you, a noob?)" "nano" false
+        tui_menu_add "$mid" "emacs (it's a lifestyle)" "emacs" false
+        tui_menu_add "$mid" "vi (why? just... why?)" "vi" false
+
+        tui_menu_run "$mid"
+        local result="${TUI_LAST_RESULT:-}"
+
+        case "$result" in
+            SELECTED:0) ed="vim" ;;
+            SELECTED:1) ed="nano" ;;
+            SELECTED:2) ed="emacs" ;;
+            SELECTED:3) ed="vi" ;;
+            "")
+                log_warn "未选择编辑器，使用默认 vim"
+                ;;
+            *)
+                log_warn "未识别选项，使用默认 vim"
+                ;;
+        esac
+    else
+        log_warn "非交互式终端，默认 EDITOR=vim"
+    fi
 
     local profile_d="/etc/profile.d/starman-editor.sh"
     local tmp
@@ -397,7 +411,9 @@ run_step_packages() {
 
     if [ -t 0 ] && [ -t 1 ]; then
         _run_optional_tui
-        _run_optional_fzf_round
+        if [ -z "${STARMAN_SKIP_OPTIONAL_FZF:-}" ]; then
+            _run_optional_fzf_round
+        fi
     else
         log_warn "非交互式终端，跳过可选软件包与 fzf 确认"
     fi

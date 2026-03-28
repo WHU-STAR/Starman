@@ -2,7 +2,9 @@
 #
 # Starman Bootstrap Installer
 #
-# Usage: curl -fsSL <url> | bash
+# Usage（推荐不用管道，便于交互与审计）:
+#   wget -qO /tmp/bootstrap.sh https://gitee.com/ajgamma/starman/raw/master/installers/bootstrap.sh && bash /tmp/bootstrap.sh
+#   或 curl -fsSL -o /tmp/bootstrap.sh <url> && bash /tmp/bootstrap.sh
 #
 # This script downloads and executes the main install.sh script
 # from GitHub Releases or Gitee mirror.
@@ -19,8 +21,8 @@ set -e
 
 GITEE_BASE="https://gitee.com/ajgamma/starman"
 
-# Latest release installer URL (Gitee only)
-GITEE_INSTALLER="$GITEE_BASE/raw/master/installers/install.sh"
+# 主安装脚本 URL（默认 Gitee；可用 STARMAN_INSTALLER_URL 覆盖，便于本地/内网测试）
+GITEE_INSTALLER="${STARMAN_INSTALLER_URL:-$GITEE_BASE/raw/master/installers/install.sh}"
 
 # ============================================================================
 # Helper Functions

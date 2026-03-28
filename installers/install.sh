@@ -31,8 +31,8 @@ SUDO_NOPASSWD=false
 GITHUB_BASE="https://github.com/STAR-Organization/starman"
 GITEE_BASE="https://gitee.com/ajgamma/starman"
 
-# Raw file URL bases
-GITEE_RAW="$GITEE_BASE/raw/master"
+# Raw file URL bases（STARMAN_GITEE_RAW 可指向镜像根 URL，与仓库目录结构一致）
+GITEE_RAW="${STARMAN_GITEE_RAW:-$GITEE_BASE/raw/master}"
 GITHUB_RAW="https://raw.githubusercontent.com/STAR-Organization/starman/master"
 
 # Staging directory for install scripts (cleaned up after completion)

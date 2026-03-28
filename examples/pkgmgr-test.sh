@@ -49,6 +49,7 @@ test_result "ripgrep (apt)" "ripgrep" "$(pkgmgr_map_name ripgrep)"
 PKGMGR="dnf"
 test_result "fd (dnf)" "fd" "$(pkgmgr_map_name fd)"
 test_result "ripgrep (dnf)" "ripgrep" "$(pkgmgr_map_name ripgrep)"
+test_result "openssh-client (dnf)" "openssh-clients" "$(pkgmgr_map_name openssh-client)"
 
 PKGMGR="pacman"
 test_result "fd (pacman)" "fd" "$(pkgmgr_map_name fd)"

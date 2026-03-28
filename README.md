@@ -56,12 +56,12 @@ values=$(tui_parse_result "$result" "VALUE")
 
 ### 默认编辑器（EDITOR）
 
-安装脚本在交互模式下会询问默认编辑器，选项与装机流程一致：
+交互安装时以 TUI **单选**（默认 vim）呈现，选项文案为：
 
-1. vim（默认）
-2. nvim（neovim）
-3. nano
-4. emacs
+- vim (you really should know how to use it)
+- nano (what are you, a noob?)
+- emacs (it's a lifestyle)
+- vi (why? just... why?)
 
 选择结果写入 `/etc/profile.d/starman-editor.sh`（`EDITOR` / `VISUAL`）。
 

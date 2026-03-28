@@ -178,6 +178,9 @@ pkgmgr_map_name() {
         yum:docker|dnf:docker|zypper:docker)
             echo "docker"
             ;;
+        yum:openssh-client|dnf:openssh-client)
+            echo "openssh-clients"
+            ;;
         *)
             echo "$pkg"
             ;;
