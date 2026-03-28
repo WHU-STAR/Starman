@@ -332,16 +332,16 @@ menu_numbered() {
     local num_options=${#options[@]}
     local choice
 
-    echo ""
-    echo -e "${COMMON_WHITE}$title${COMMON_NC}"
-    echo ""
+    echo "" >&2
+    echo -e "${COMMON_WHITE}$title${COMMON_NC}" >&2
+    echo "" >&2
 
     for ((i = 0; i < num_options; i++)); do
-        printf "  ${COMMON_YELLOW}%d${COMMON_NC}) %s\n" $((i + 1)) "${options[$i]}"
+        printf "  ${COMMON_YELLOW}%d${COMMON_NC}) %s\n" $((i + 1)) "${options[$i]}" >&2
     done
 
-    echo ""
-    printf "请选择 (1-%d, 0 取消): " "$num_options"
+    echo "" >&2
+    printf "请选择 (1-%d, 0 取消): " "$num_options" >&2
     read -r choice
 
     # 验证输入

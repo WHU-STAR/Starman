@@ -65,6 +65,7 @@ while true; do
         $'\n'|$'\r'|'')
             echo ""
             echo "选中：${items[$cursor]}"
+            sleep 3
             break
             ;;
     esac
@@ -134,9 +135,9 @@ run_test() {
     cat "$output_file"
     echo "  ---------------"
 
-    # 6. 发送 Enter 确认
+    # 6. 发送 Enter 确认（Enter 为 tmux 按键名，勿加引号成普通字符）
     log_info "步骤 6: 发送 Enter 确认"
-    tmux send-keys -t "$session" "Enter"
+    tmux send-keys -t "$session" Enter
     sleep 0.5
 
     tmux capture-pane -t "$session" -p -S -100 > "$output_file"

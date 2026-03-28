@@ -57,6 +57,18 @@ if [ -f "$SCRIPT_DIR/scripts/steps/packages.sh" ]; then
     source "$SCRIPT_DIR/scripts/steps/packages.sh"
 fi
 
+# 数据盘与 lab 共享（OpenSpec: install-script-disk-lab）
+if [ -f "$SCRIPT_DIR/scripts/steps/disk_lab.sh" ]; then
+    # shellcheck source=scripts/steps/disk_lab.sh
+    source "$SCRIPT_DIR/scripts/steps/disk_lab.sh"
+fi
+
+# Linuxbrew 模板（OpenSpec: install-script-brew）
+if [ -f "$SCRIPT_DIR/scripts/steps/brew.sh" ]; then
+    # shellcheck source=scripts/steps/brew.sh
+    source "$SCRIPT_DIR/scripts/steps/brew.sh"
+fi
+
 # ============================================================================
 # 安装步骤函数
 # ============================================================================
@@ -67,11 +79,17 @@ if ! declare -F run_step_packages >/dev/null 2>&1; then
     }
 fi
 
-run_step_disk() {
-    log_info "正在检测磁盘空间..."
-    # TODO: 由子 change 实现完整的磁盘检测逻辑
-    log_success "磁盘空间检测完成"
-}
+if ! declare -F run_step_disk_lab >/dev/null 2>&1; then
+    run_step_disk_lab() {
+        log_warn "未找到 scripts/steps/disk_lab.sh，跳过数据盘与 lab 步骤"
+    }
+fi
+
+if ! declare -F run_step_brew >/dev/null 2>&1; then
+    run_step_brew() {
+        log_warn "未找到 scripts/steps/brew.sh，跳过 Linuxbrew 步骤"
+    }
+fi
 
 # ============================================================================
 # 主流程
@@ -104,7 +122,8 @@ main() {
     echo ""
 
     run_step_packages
-    run_step_disk
+    run_step_disk_lab
+    run_step_brew
 
     echo ""
     log_success "Starman 系统配置完成"

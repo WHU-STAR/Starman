@@ -55,6 +55,8 @@ INSTALL_FILES=(
     "scripts/lib/pkgmgr.sh"
     "scripts/lib/banners.txt"
     "scripts/steps/packages.sh"
+    "scripts/steps/disk_lab.sh"
+    "scripts/steps/brew.sh"
     "templates/vimrc_singlefile"
     "templates/tmux.min.snippet"
     "templates/bash.min.snippet"
