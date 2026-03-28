@@ -123,6 +123,18 @@ require_sudo() {
     die "需要 sudo 权限但无法验证。请确保当前用户在 sudo/wheel 组中。" 1
 }
 
+# 必须在交互式终端运行（stdin/stdout 均为 TTY），以便 TUI、sudo 与 ssh 等步骤正常工作。
+# 禁止使用「curl … | bash」等管道方式执行安装入口（bash 无控制终端时会进入非交互路径）。
+# 自动化/CI 请使用 tmux、script(1) 等分配伪终端，例如：script -q -c "bash install.sh" /dev/null
+require_interactive_terminal() {
+    if [ ! -t 0 ] || [ ! -t 1 ]; then
+        log_error "Starman 安装流程必须在交互式终端中运行（stdin 与 stdout 均须为 TTY）。"
+        echo "请勿使用管道执行安装脚本。请使用 SSH/本地终端、tmux/screen，或：" >&2
+        echo "  script -q -c \"bash install.sh\" /dev/null" >&2
+        exit 1
+    fi
+}
+
 # 检测操作系统类型
 # 返回值：
 #   输出 "debian" "ubuntu" "rhel" "centos" "fedora" "arch" 等

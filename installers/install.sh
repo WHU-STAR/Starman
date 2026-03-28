@@ -57,6 +57,8 @@ INSTALL_FILES=(
     "scripts/steps/packages.sh"
     "scripts/steps/disk_lab.sh"
     "scripts/steps/brew.sh"
+    "scripts/steps/ssh.sh"
+    "templates/ssh/sshd_snippet.conf"
     "templates/vimrc_singlefile"
     "templates/tmux.min.snippet"
     "templates/bash.min.snippet"
@@ -201,7 +203,7 @@ check_interactive() {
         echo ""
         echo "  2. 以新用户身份重新执行安装："
         echo "     su - <用户名>"
-        echo "     curl -fsSL <安装URL> | bash"
+        echo "     curl -fsSL <安装URL> -o /tmp/starman-install.sh && bash /tmp/starman-install.sh"
         echo ""
         exit 1
     fi

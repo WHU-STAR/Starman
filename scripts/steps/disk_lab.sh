@@ -161,11 +161,6 @@ run_step_disk_lab() {
         return 1
     fi
 
-    if [ ! -t 0 ] || [ ! -t 1 ]; then
-        log_warn "非交互式终端，跳过数据盘与 lab 配置（无挂载点，不创建 lab share）"
-        return 0
-    fi
-
     if ! declare -F tui_menu_create &>/dev/null; then
         log_warn "TUI 未加载，跳过数据盘与 lab"
         return 0

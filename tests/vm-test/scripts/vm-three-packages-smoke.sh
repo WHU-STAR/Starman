@@ -43,7 +43,7 @@ http_stop() {
 # 短命令 + 唯一 ID；先 cd /tmp，避免 cwd 落在已删除的 /tmp/starman-smoke 上导致 bash 启动失败（exit 127）
 guest_one_liner() {
     local sid="$1"
-    printf '%s' "cd /tmp && export STARMAN_SMOKE_ID=${sid} && curl -fsSL http://${HOST_HTTP}:${PORT}/guest-smoke.sh | bash"
+    printf '%s' "cd /tmp && export STARMAN_SMOKE_ID=${sid} && curl -fsSL http://${HOST_HTTP}:${PORT}/guest-smoke.sh -o /tmp/guest-smoke-run.sh && chmod +x /tmp/guest-smoke-run.sh && bash /tmp/guest-smoke-run.sh"
 }
 
 wait_for_marker() {

@@ -298,34 +298,30 @@ _vim_template_target() {
 run_step_editor() {
     local ed="vim"
 
-    if [ -t 0 ] && [ -t 1 ]; then
-        tui_clear
-        tui_menu_create "默认编辑器 (EDITOR / VISUAL)"
-        local mid="$TUI_LAST_MENU_ID"
-        tui_menu_set_radio "$mid"
-        tui_menu_add "$mid" "vim (you really should know how to use it)" "vim" true
-        tui_menu_add "$mid" "nano (what are you, a noob?)" "nano" false
-        tui_menu_add "$mid" "emacs (it's a lifestyle)" "emacs" false
-        tui_menu_add "$mid" "vi (why? just... why?)" "vi" false
+    tui_clear
+    tui_menu_create "默认编辑器 (EDITOR / VISUAL)"
+    local mid="$TUI_LAST_MENU_ID"
+    tui_menu_set_radio "$mid"
+    tui_menu_add "$mid" "vim (you really should know how to use it)" "vim" true
+    tui_menu_add "$mid" "nano (what are you, a noob?)" "nano" false
+    tui_menu_add "$mid" "emacs (it's a lifestyle)" "emacs" false
+    tui_menu_add "$mid" "vi (why? just... why?)" "vi" false
 
-        tui_menu_run "$mid"
-        local result="${TUI_LAST_RESULT:-}"
+    tui_menu_run "$mid"
+    local result="${TUI_LAST_RESULT:-}"
 
-        case "$result" in
-            SELECTED:0) ed="vim" ;;
-            SELECTED:1) ed="nano" ;;
-            SELECTED:2) ed="emacs" ;;
-            SELECTED:3) ed="vi" ;;
-            "")
-                log_warn "未选择编辑器，使用默认 vim"
-                ;;
-            *)
-                log_warn "未识别选项，使用默认 vim"
-                ;;
-        esac
-    else
-        log_warn "非交互式终端，默认 EDITOR=vim"
-    fi
+    case "$result" in
+        SELECTED:0) ed="vim" ;;
+        SELECTED:1) ed="nano" ;;
+        SELECTED:2) ed="emacs" ;;
+        SELECTED:3) ed="vi" ;;
+        "")
+            log_warn "未选择编辑器，使用默认 vim"
+            ;;
+        *)
+            log_warn "未识别选项，使用默认 vim"
+            ;;
+    esac
 
     local profile_d="/etc/profile.d/starman-editor.sh"
     local tmp
@@ -460,21 +456,13 @@ run_step_packages() {
     _pkgmgr_install_list_mapped "${PACKAGES_BASE[@]}" || return 1
     log_success "基础工具包已处理"
 
-    if [ -t 0 ] && [ -t 1 ]; then
-        _run_optional_tui
-        if [ -z "${STARMAN_SKIP_OPTIONAL_FZF:-}" ]; then
-            _run_optional_fzf_round
-        fi
-    else
-        log_warn "非交互式终端，跳过可选软件包与 fzf 确认"
+    _run_optional_tui
+    if [ -z "${STARMAN_SKIP_OPTIONAL_FZF:-}" ]; then
+        _run_optional_fzf_round
     fi
 
-    if [ -t 0 ] && [ -t 1 ]; then
-        _run_templates_interactive
-        run_step_editor
-    else
-        log_warn "非交互式终端，跳过配置模板与 EDITOR 交互"
-    fi
+    _run_templates_interactive
+    run_step_editor
 
     log_success "软件包与配置步骤完成"
 }

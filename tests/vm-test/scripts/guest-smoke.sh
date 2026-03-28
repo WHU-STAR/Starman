@@ -1,5 +1,5 @@
 #!/bin/bash
-# 在测试虚拟机内由 curl|bash 执行；勿在宿主机直接运行。
+# 在测试虚拟机内执行（宿主机通过 tmux 下发；落地脚本后 bash，勿管道）；勿在宿主机直接运行。
 # 从 HTTP 拉取仓库快照并执行 install.sh，最后打印唯一结束标记。
 set -uo pipefail
 
@@ -34,20 +34,22 @@ cd starman-smoke
 curl -fsSL "http://${HOST}:${PORT}/${SNAP}" | tar xzf -
 
 run_install() {
+    # sudo -S 会占用 stdin，导致 install.sh 无 TTY；用 script(1) 分配伪终端以满足 require_interactive_terminal
+    local _run='bash install.sh'
     if [ "$(id -u)" -eq 0 ]; then
         bash install.sh
         return $?
     fi
     case "$(whoami)" in
         ubuntu)
-            echo ubuntu123 | sudo -S env DEBIAN_FRONTEND=noninteractive bash install.sh
+            echo ubuntu123 | sudo -S env DEBIAN_FRONTEND=noninteractive script -q -c "$_run" /dev/null
             ;;
         fedora)
-            echo fedora123 | sudo -S bash install.sh
+            echo fedora123 | sudo -S script -q -c "$_run" /dev/null
             ;;
         *)
-            echo "guest-smoke: 未知用户 $(whoami)，尝试 sudo -S" >&2
-            sudo -S bash install.sh
+            echo "guest-smoke: 未知用户 $(whoami)，尝试 sudo -S + script" >&2
+            sudo -S script -q -c "$_run" /dev/null
             ;;
     esac
 }

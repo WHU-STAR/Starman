@@ -2,8 +2,8 @@
 #
 # Starman 安装脚本 - 统一入口
 #
-# 用法：
-#   curl -fsSL <url>/install.sh | bash
+# 用法（须交互式终端，勿使用管道）：
+#   curl -fsSL <url>/install.sh -o /tmp/starman-install.sh && bash /tmp/starman-install.sh
 #   或
 #   git clone <repo> && cd <repo> && bash install.sh
 #
@@ -69,6 +69,12 @@ if [ -f "$SCRIPT_DIR/scripts/steps/brew.sh" ]; then
     source "$SCRIPT_DIR/scripts/steps/brew.sh"
 fi
 
+# OpenSSH 服务端片段（OpenSpec: install-script-ssh）
+if [ -f "$SCRIPT_DIR/scripts/steps/ssh.sh" ]; then
+    # shellcheck source=scripts/steps/ssh.sh
+    source "$SCRIPT_DIR/scripts/steps/ssh.sh"
+fi
+
 # ============================================================================
 # 安装步骤函数
 # ============================================================================
@@ -88,6 +94,12 @@ fi
 if ! declare -F run_step_brew >/dev/null 2>&1; then
     run_step_brew() {
         log_warn "未找到 scripts/steps/brew.sh，跳过 Linuxbrew 步骤"
+    }
+fi
+
+if ! declare -F run_step_ssh >/dev/null 2>&1; then
+    run_step_ssh() {
+        log_warn "未找到 scripts/steps/ssh.sh，跳过 SSH 服务端步骤"
     }
 fi
 
@@ -114,6 +126,8 @@ main() {
     log_info "内核：$(uname -r)"
     echo ""
 
+    require_interactive_terminal
+
     # 检测 sudo 权限
     require_sudo
 
@@ -124,6 +138,7 @@ main() {
     run_step_packages
     run_step_disk_lab
     run_step_brew
+    run_step_ssh
 
     echo ""
     log_success "Starman 系统配置完成"

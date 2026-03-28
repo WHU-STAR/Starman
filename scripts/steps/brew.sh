@@ -290,11 +290,6 @@ run_step_brew() {
         return 1
     fi
 
-    if [ ! -t 0 ] || [ ! -t 1 ]; then
-        log_warn "非交互式终端，跳过 Linuxbrew（可设置 STARMAN_SKIP_BREW=1 显式跳过）"
-        return 0
-    fi
-
     if ! declare -F tui_menu_create &>/dev/null; then
         log_warn "TUI 未加载，跳过 Linuxbrew"
         return 0

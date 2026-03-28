@@ -104,7 +104,7 @@ run_one() {
 
     if drive_disk_lab_interactive "$session" "$sid"; then
         log "${session}: 检测到 ${needle}"
-        _capture "$session" | tail -n 40 | grep -E "STARMAN_DISK_LAB_VM_DONE_${sid}|DISK_LAB_VM_FAIL|已设置 STARMAN_SKIP|已跳过数据盘" | tail -20 || true
+        _capture "$session" | tail -n 40 | grep -E "STARMAN_DISK_LAB_VM_DONE_${sid}|DISK_LAB_VM_FAIL|已跳过数据盘" | tail -20 || true
     else
         log "${session}: 超时（未看到 ${needle}）"
         _capture "$session" | tail -60

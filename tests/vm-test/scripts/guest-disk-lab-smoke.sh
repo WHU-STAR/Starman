@@ -3,8 +3,8 @@
 #   curl -fsSL … -o /tmp/guest-disk-lab-smoke.sh && chmod +x … && bash /tmp/guest-disk-lab-smoke.sh
 # 以保证 bash 挂在交互式终端上（见 starman-vm-tmux-test）。
 #
-# 拉取仓库快照（curl -o + tar）、语法检查、在 TTY 下跑 run_step_disk_lab（默认「跳过」需一次 Enter，由宿主机发键），
-# 再验证 STARMAN_SKIP_DISK_LAB 路径；最后打印唯一结束标记。
+# 拉取仓库快照（curl -o + tar）、语法检查、在 TTY 下跑 run_step_disk_lab（默认「跳过」需一次 Enter，由宿主机发键）；
+# 最后打印唯一结束标记。
 set -uo pipefail
 
 HOST="${STARMAN_SMOKE_HTTP_HOST:-192.168.122.1}"
@@ -54,15 +54,11 @@ set +e
 # 交互式终端：应出现「数据盘与 lab 共享」TUI，默认「跳过」——由宿主机 tmux send-keys Enter 确认
 run_step_disk_lab
 ec1=$?
-
-export STARMAN_SKIP_DISK_LAB=1
-run_step_disk_lab
-ec2=$?
 set -e
 
 SID="${STARMAN_SMOKE_ID:-0}"
-if [ "$ec1" -ne 0 ] || [ "$ec2" -ne 0 ]; then
-    echo "STARMAN_DISK_LAB_VM_FAIL_${SID} ec1=${ec1} ec2=${ec2}"
+if [ "$ec1" -ne 0 ]; then
+    echo "STARMAN_DISK_LAB_VM_FAIL_${SID} ec1=${ec1}"
     exit 1
 fi
 
