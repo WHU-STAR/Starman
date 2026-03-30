@@ -10,12 +10,30 @@ pub const SYSTEM_CONFIG_PATH: &str = "/etc/starman/config.toml";
 pub struct StarmanConfig {
     /// Preferred UI language tag: `zh`, `en`, etc.
     pub lang: Option<String>,
+    /// `starman create-user` 默认协作组（如 `lab`）
+    pub default_user_group: Option<String>,
+    /// 新用户登录 shell（如 `/bin/bash`）
+    pub default_shell: Option<String>,
+    /// Linuxbrew Brewfile 模板路径（默认 `/home/linuxbrew/Brewfile.starman`）
+    pub brewfile_template_path: Option<String>,
+    /// `create-user` 默认家目录块配额（如 `200G`），可用 `--no-quota` 关闭
+    pub default_home_quota: Option<String>,
 }
 
 /// Merge: `user` fields override `system` when `Some`.
 pub fn merge(system: StarmanConfig, user: StarmanConfig) -> StarmanConfig {
     StarmanConfig {
         lang: user.lang.or(system.lang),
+        default_user_group: user
+            .default_user_group
+            .or(system.default_user_group),
+        default_shell: user.default_shell.or(system.default_shell),
+        brewfile_template_path: user
+            .brewfile_template_path
+            .or(system.brewfile_template_path),
+        default_home_quota: user
+            .default_home_quota
+            .or(system.default_home_quota),
     }
 }
 
@@ -55,9 +73,11 @@ mod tests {
     fn merge_prefers_user_lang() {
         let sys = StarmanConfig {
             lang: Some("en".into()),
+            ..Default::default()
         };
         let user = StarmanConfig {
             lang: Some("zh".into()),
+            ..Default::default()
         };
         let m = merge(sys, user);
         assert_eq!(m.lang.as_deref(), Some("zh"));
@@ -67,8 +87,12 @@ mod tests {
     fn merge_falls_back_to_system() {
         let sys = StarmanConfig {
             lang: Some("en".into()),
+            ..Default::default()
         };
-        let user = StarmanConfig { lang: None };
+        let user = StarmanConfig {
+            lang: None,
+            ..Default::default()
+        };
         let m = merge(sys, user);
         assert_eq!(m.lang.as_deref(), Some("en"));
     }

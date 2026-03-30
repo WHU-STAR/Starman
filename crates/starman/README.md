@@ -1,6 +1,28 @@
 # starman CLI
 
-Rust 实现的 Starman 运维入口：子命令、`completion`、TUI、`doctor`。
+Rust 实现的 Starman 运维入口：子命令、`completion`、TUI、`doctor`、`create-user`。
+
+## `create-user`（需 root）
+
+创建 UNIX 用户、加入协作组（默认 `lab`，可配置）、向 `~/.bashrc` 与 `~/.zshrc` 写入 Starman 标记块（`HOMEBREW_PREFIX=~/.linuxbrew` 等）、可选执行 `brew bundle`（需该用户已安装 `~/.linuxbrew/bin/brew` 且存在 Brewfile 模板）、**家目录所在文件系统上的用户块配额**（默认 **200G**，`setquota`；需挂载选项 `usrquota` 等，否则命令会提示警告但用户已创建）。
+
+```bash
+sudo starman create-user alice -g lab
+sudo starman create-user bob --shell /bin/zsh --no-brew
+sudo starman create-user carol --home-quota 100G
+sudo starman create-user dave --no-quota
+```
+
+系统配置 `/etc/starman/config.toml` 可选键：
+
+| 键 | 说明 |
+|----|------|
+| `default_user_group` | 未传 `-g` 时使用的组名 |
+| `default_shell` | 登录 shell，默认 `/bin/bash` |
+| `brewfile_template_path` | Brewfile 模板，默认 `/home/linuxbrew/Brewfile.starman` |
+| `default_home_quota` | 默认家目录配额，如 `200G`；可用 `--no-quota` 关闭 |
+
+元数据写入 `/etc/starman/users.yaml`。
 
 ## 构建
 
@@ -19,6 +41,20 @@ rustup target add x86_64-unknown-linux-musl
 cargo build --release -p starman --locked --target x86_64-unknown-linux-musl
 # 产物：target/x86_64-unknown-linux-musl/release/starman
 ```
+
+### 宿主机无 cargo：用 Docker 官方镜像构建
+
+仓库提供脚本，在容器内安装 `musl-tools`、添加 musl target 并执行 `cargo build`（镜像版本应与 `rust-toolchain.toml` 一致，当前为 **1.88**）：
+
+```bash
+bash scripts/docker-build-starman.sh
+# 可选：RUST_DOCKER_IMAGE=rust:1.88-bookworm（默认即此）
+```
+
+说明：
+
+- 官方 `rust:*-bookworm` 镜像内 **`cargo`/`rustup` 在 `/usr/local/cargo/bin`**，脚本已设置 `PATH`；若自行 `docker run ... bash -c`，需先 `export PATH="/usr/local/cargo/bin:$PATH"`，否则会出现 `rustup: command not found`。
+- 若曾使用 `rust:1.85-bookworm`，与当前工具链 **1.88** 不一致；请改用 **`rust:1.88-bookworm`**（或与 `rust-toolchain.toml` 同步的版本）。
 
 ## 环境变量
 
@@ -54,13 +90,22 @@ cargo run -p starman --example generate_completions --locked
 bash scripts/gen-starman-completions.sh
 ```
 
-输出到仓库 `assets/completions/`（`starman.bash`、`starman.zsh`、`starman.fish`）。
+输出到仓库 `assets/completions/`：
 
-运行时生成：
+| 文件 | Shell |
+|------|--------|
+| `starman.bash` | Bash |
+| `starman.zsh` | Zsh |
+| `starman.fish` | Fish |
+| `starman.elv` | Elvish |
+| `_starman.ps1` | PowerShell |
+
+运行时生成（与上表等价，且支持子命令别名 `completions`）：
 
 ```bash
 starman completion bash
 starman completion zsh
+starman completion powershell
 ```
 
 ## 在测试机中验证（tmux + libvirt）
@@ -73,7 +118,11 @@ starman completion zsh
 4. 在客体 **真实 TTY** 或 `tmux` 窗格中运行 `starman` / `starman tui`；无 TTY 时默认 TUI 会失败，请使用 `starman version` 等子命令。  
 5. 结束后 `bash scripts/vm/restore-vm.sh ubuntu22-test`。
 
-自动化冒烟示例：`tests/vm-test/scenarios/starman-cli-smoke.sh`（宿主机需 `cargo` 与 `tmux`）。
+自动化冒烟示例：
+
+- `tests/vm-test/scenarios/starman-cli-smoke.sh`（宿主机需 `cargo` 与 `tmux`）。
+- `tests/vm-test/scenarios/starman-completion-smoke.sh` — 客体已安装 `starman` 后，在 tmux（默认 `vm-ubuntu:virsh`）验证各 shell 的 `starman completion …` 与别名 `completions`。
+- `tests/vm-test/scenarios/starman-create-user-smoke.sh` — 客体上 **sudo** 执行 `create-user`（`--no-brew`），校验家目录 shell 标记块与 `lab` 组（需已部署含 `create-user` 的二进制）。
 
 ## CI 构建矩阵
 

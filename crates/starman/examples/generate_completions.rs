@@ -18,10 +18,13 @@ fn main() -> std::io::Result<()> {
         .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "bad manifest path"))?;
     let out = repo_root.join("assets/completions");
     fs::create_dir_all(&out)?;
+    // 文件名与 clap_complete 各 Shell 的 `file_name` 约定一致（PowerShell 为 `_{bin}.ps1`）。
     for (shell, name) in [
         (Shell::Bash, "starman.bash"),
         (Shell::Zsh, "starman.zsh"),
         (Shell::Fish, "starman.fish"),
+        (Shell::Elvish, "starman.elv"),
+        (Shell::PowerShell, "_starman.ps1"),
     ] {
         let mut cmd = command_for_completions();
         let path = out.join(name);

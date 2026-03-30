@@ -15,6 +15,12 @@ _starman() {
             starman,completion)
                 cmd="starman__completion"
                 ;;
+            starman,completions)
+                cmd="starman__completion"
+                ;;
+            starman,create-user)
+                cmd="starman__create__user"
+                ;;
             starman,doctor)
                 cmd="starman__doctor"
                 ;;
@@ -29,6 +35,9 @@ _starman() {
                 ;;
             starman__help,completion)
                 cmd="starman__help__completion"
+                ;;
+            starman__help,create-user)
+                cmd="starman__help__create__user"
                 ;;
             starman__help,doctor)
                 cmd="starman__help__doctor"
@@ -49,7 +58,7 @@ _starman() {
 
     case "${cmd}" in
         starman)
-            opts="-h -V --no-color --help --version tui version completion doctor help"
+            opts="-h -V --no-color --help --version tui version completion doctor create-user help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -63,12 +72,42 @@ _starman() {
             return 0
             ;;
         starman__completion)
-            opts="-h -V --no-color --help --version bash zsh fish elvish"
+            opts="-h -V --no-color --help --version bash zsh fish elvish power-shell"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
             fi
             case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        starman__create__user)
+            opts="-g -h -V --group --shell --no-brew --home-quota --no-quota --no-color --help --version <USERNAME>"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --group)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -g)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --shell)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --home-quota)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;
@@ -91,7 +130,7 @@ _starman() {
             return 0
             ;;
         starman__help)
-            opts="tui version completion doctor help"
+            opts="tui version completion doctor create-user help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -105,6 +144,20 @@ _starman() {
             return 0
             ;;
         starman__help__completion)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        starman__help__create__user)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )

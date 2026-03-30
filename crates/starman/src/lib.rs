@@ -2,7 +2,10 @@
 
 pub mod cli;
 pub mod config;
+pub mod create_user;
 pub mod doctor;
+pub mod quota;
+pub mod shell_snippet;
 pub mod i18n;
 pub mod logging;
 pub mod tui;
@@ -45,6 +48,10 @@ pub fn run() -> Result<()> {
         }
         Some(cli::Commands::Doctor) => {
             doctor::run()?;
+        }
+        Some(cli::Commands::CreateUser(ref args)) => {
+            let cfg = config::load_merged()?;
+            create_user::run(&cli, &cfg, args.clone())?;
         }
     }
 

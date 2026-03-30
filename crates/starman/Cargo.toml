@@ -17,6 +17,8 @@ tempfile = "3"
 
 [dependencies]
 anyhow = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std", "serde"] }
+libc = "0.2"
 # Pin below 4.5 to avoid transitive crates requiring Rust 1.85+ / edition2024 (broader distro compatibility).
 clap = { version = "=4.4.18", features = ["derive", "cargo", "string"] }
 clap_complete = "=4.4.10"
@@ -24,6 +26,7 @@ crossterm = "0.28"
 dirs = "5"
 ratatui = "0.28"
 serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
 toml = "0.8"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

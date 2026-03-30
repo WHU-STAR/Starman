@@ -78,6 +78,97 @@ pub fn tui_item_version(lang: Lang) -> &'static str {
     }
 }
 
+pub fn tui_item_create_user(lang: Lang) -> &'static str {
+    match lang {
+        Lang::Zh => "创建用户（向导）",
+        Lang::En => "Create user (wizard)",
+    }
+}
+
+pub fn tui_cu_need_root(lang: Lang) -> &'static str {
+    match lang {
+        Lang::Zh => "创建用户需要 root。请使用: sudo starman tui",
+        Lang::En => "create-user requires root. Run: sudo starman tui",
+    }
+}
+
+pub fn tui_cu_title(lang: Lang) -> &'static str {
+    match lang {
+        Lang::Zh => "创建用户",
+        Lang::En => "Create user",
+    }
+}
+
+pub fn tui_cu_prompt_username(lang: Lang) -> &'static str {
+    match lang {
+        Lang::Zh => "登录名（小写字母、数字、_、-；1–32 字符）",
+        Lang::En => "Username (lower, digits, _,-; 1–32 chars)",
+    }
+}
+
+pub fn tui_cu_prompt_group(lang: Lang) -> &'static str {
+    match lang {
+        Lang::Zh => "协作 UNIX 组（留空则使用配置中的 default_user_group）",
+        Lang::En => "UNIX group (empty = default_user_group from config)",
+    }
+}
+
+pub fn tui_cu_prompt_shell(lang: Lang) -> &'static str {
+    match lang {
+        Lang::Zh => "登录 shell 路径（留空则使用配置中的 default_shell）",
+        Lang::En => "Login shell path (empty = default_shell from config)",
+    }
+}
+
+pub fn tui_cu_prompt_brew(lang: Lang) -> &'static str {
+    match lang {
+        Lang::Zh => "是否运行 Linuxbrew bundle（模板见 brewfile_template_path）？",
+        Lang::En => "Run Linuxbrew bundle (see brewfile_template_path)?",
+    }
+}
+
+pub fn tui_cu_prompt_quota(lang: Lang) -> &'static str {
+    match lang {
+        Lang::Zh => "是否设置家目录块配额？",
+        Lang::En => "Set home directory block quota?",
+    }
+}
+
+pub fn tui_cu_prompt_quota_size(lang: Lang) -> &'static str {
+    match lang {
+        Lang::Zh => "配额大小（如 200G、500M；与 --home-quota 相同）",
+        Lang::En => "Quota size (e.g. 200G, 500M; same as --home-quota)",
+    }
+}
+
+pub fn tui_cu_hint_yn(lang: Lang) -> &'static str {
+    match lang {
+        Lang::Zh => "Enter/Y：是 · N：否 · Esc：取消向导",
+        Lang::En => "Enter/Y: yes · N: no · Esc: cancel wizard",
+    }
+}
+
+pub fn tui_cu_hint_text(lang: Lang) -> &'static str {
+    match lang {
+        Lang::Zh => "Enter：下一步 · Backspace：删除 · Esc：取消向导",
+        Lang::En => "Enter: next · Backspace: delete · Esc: cancel wizard",
+    }
+}
+
+pub fn tui_cu_confirm_hint(lang: Lang) -> &'static str {
+    match lang {
+        Lang::Zh => "Enter：执行创建 · Esc：取消",
+        Lang::En => "Enter: run · Esc: cancel",
+    }
+}
+
+pub fn tui_cu_done_ok(lang: Lang) -> &'static str {
+    match lang {
+        Lang::Zh => "用户已创建（详见日志）。按任意键返回菜单。",
+        Lang::En => "User created (see logs). Press any key to return.",
+    }
+}
+
 pub fn tui_item_quit(lang: Lang) -> &'static str {
     match lang {
         Lang::Zh => "退出",

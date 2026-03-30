@@ -54,16 +54,6 @@ values=$(tui_parse_result "$result" "VALUE")
 
 完整示例参考 `examples/tui-env-demo.sh`。
 
-### 默认编辑器（EDITOR）
-
-交互安装时以 TUI **单选**（默认 vim）呈现，选项文案为：
-
-- vim (you really should know how to use it)
-- nano (what are you, a noob?)
-- emacs (it's a lifestyle)
-- vi (why? just... why?)
-
-选择结果写入 `/etc/profile.d/starman-editor.sh`（`EDITOR` / `VISUAL`）。
 
 ### 系统管理
 
@@ -71,28 +61,6 @@ values=$(tui_parse_result "$result" "VALUE")
 - 自动化挂载数据盘
 - 自动化安装常用软件
 - 生成系统级管理员工具
+- **`starman` CLI**（安装至 `/usr/sbin/starman`）：`starman create-user <用户>` 创建账号、协作组、shell 片段与可选 Linuxbrew bundle（需 `sudo`；详见 `crates/starman/README.md`）
 
 详细设计文档请参阅 [开发设计文档](openspec/DEV_FLOW.md)。
-
-## 开发流程
-
-本项目使用 OpenSpec 规范驱动开发流程。详细的开发计划、依赖关系和里程碑请参阅：
-
-- [开发流程设计](openspec/DEV_FLOW.md) - 完整的开发路线图
-- [OpenSpec 配置](openspec/config.yaml) - 项目规范配置
-
-## 测试
-
-使用虚拟机进行自动化测试：
-
-```bash
-# Ubuntu 22.04 (apt 系)
-tmux attach -t vm-ubuntu
-
-# CentOS 7 (yum 系)
-tmux attach -t vm-centos
-```
-
-## 许可证
-
-GPL License

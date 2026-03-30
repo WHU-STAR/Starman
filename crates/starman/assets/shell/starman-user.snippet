@@ -1,0 +1,6 @@
+# >>> starman user init >>>
+# Starman 注入块：可安全重复运行（由 starman create-user 替换本段）
+export HOMEBREW_PREFIX="${HOMEBREW_PREFIX:-$HOME/.linuxbrew}"
+export PATH="$HOMEBREW_PREFIX/bin:$HOMEBREW_PREFIX/sbin:$PATH"
+[ -n "${MANPATH:-}" ] && export MANPATH="$HOMEBREW_PREFIX/share/man:$MANPATH" || true
+# <<< starman user init <<<
