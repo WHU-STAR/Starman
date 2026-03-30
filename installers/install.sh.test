@@ -64,6 +64,32 @@ log_success() {
     echo -e "${GREEN}[SUCCESS]${NC} $*"
 }
 
+# HTTP：优先 wget（与 installers/install.sh、common.sh 一致）
+_starman_install_http_get() {
+    local url="$1"
+    local out="$2"
+    local to="${STARMAN_HTTP_TIMEOUT:-120}"
+    if command -v wget &>/dev/null; then
+        wget -q --timeout="$to" --tries=1 -c -O "$out" "$url" 2>/dev/null && return 0
+    fi
+    if command -v curl &>/dev/null; then
+        curl -fsSL --connect-timeout "${STARMAN_CURL_CONNECT_TIMEOUT:-5}" --max-time "$to" -C - "$url" -o "$out" 2>/dev/null && return 0
+    fi
+    return 1
+}
+
+_starman_install_http_probe() {
+    local url="$1"
+    local to="${STARMAN_HTTP_TIMEOUT:-15}"
+    if command -v wget &>/dev/null; then
+        wget -q --timeout="$to" --tries=1 -O /dev/null "$url" 2>/dev/null && return 0
+    fi
+    if command -v curl &>/dev/null; then
+        curl -fsSL --connect-timeout "${STARMAN_CURL_CONNECT_TIMEOUT:-5}" --max-time "$to" -o /dev/null "$url" 2>/dev/null && return 0
+    fi
+    return 1
+}
+
 # ============================================================================
 # Environment Detection
 # ============================================================================
@@ -109,7 +135,7 @@ detect_network() {
     log_info "检测网络连通性..."
 
     # Test GitHub
-    if curl -fsSL --connect-timeout 5 "https://github.com" &>/dev/null; then
+    if _starman_install_http_probe "https://github.com"; then
         GITHUB_AVAILABLE=true
         log_info "GitHub 可访问"
     else
@@ -118,7 +144,7 @@ detect_network() {
     fi
 
     # Test Gitee
-    if curl -fsSL --connect-timeout 5 "https://gitee.com" &>/dev/null; then
+    if _starman_install_http_probe "https://gitee.com"; then
         GITEE_AVAILABLE=true
         log_info "Gitee 可访问"
     else
@@ -198,7 +224,7 @@ download_binary() {
     # Try GitHub first if available
     if [ "$GITHUB_AVAILABLE" = true ]; then
         log_info "从 GitHub 下载：$github_url"
-        if curl -fsSL -C - "$github_url" -o "$output" 2>/dev/null; then
+        if _starman_install_http_get "$github_url" "$output"; then
             log_success "下载成功"
             return 0
         fi
@@ -208,7 +234,7 @@ download_binary() {
     if [ "$GITEE_AVAILABLE" = true ]; then
         log_warn "GitHub 下载失败，切换到 Gitee..."
         log_info "从 Gitee 下载：$gitee_url"
-        if curl -fsSL -C - "$gitee_url" -o "$output"; then
+        if _starman_install_http_get "$gitee_url" "$output"; then
             log_success "下载成功"
             return 0
         fi
@@ -361,7 +387,8 @@ show_offline_guide() {
     echo "如果无法在线下载，可按以下步骤离线安装："
     echo ""
     echo "1. 在其他机器下载二进制文件："
-    echo "   curl -LO https://github.com/STAR-Organization/starman/releases/latest/download/starman-$ARCH-linux"
+    echo "   wget -O starman-$ARCH-linux https://github.com/STAR-Organization/starman/releases/latest/download/starman-$ARCH-linux"
+    echo "   或: curl -LO https://github.com/STAR-Organization/starman/releases/latest/download/starman-$ARCH-linux"
     echo ""
     echo "2. 将文件复制到目标机器的 /tmp/starman"
     echo ""

@@ -31,7 +31,11 @@ rm -rf starman-smoke
 mkdir -p starman-smoke
 cd starman-smoke
 
-curl -fsSL "http://${HOST}:${PORT}/${SNAP}" | tar xzf -
+if command -v wget &>/dev/null; then
+    wget -qO- --timeout=120 --tries=1 "http://${HOST}:${PORT}/${SNAP}" | tar xzf -
+else
+    curl -fsSL "http://${HOST}:${PORT}/${SNAP}" | tar xzf -
+fi
 
 run_install() {
     # sudo -S 会占用 stdin，导致 install.sh 无 TTY；用 script(1) 分配伪终端以满足 require_interactive_terminal

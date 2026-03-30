@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# 在 vm-ubuntu（ubuntu22-test）上对附加数据盘 /dev/vdb 做 disk_lab 端到端测试（tmux 发键，禁止 curl|bash）。
+# 在 vm-ubuntu（ubuntu22-test）上对附加数据盘 /dev/vdb 做 disk_lab 端到端测试（tmux 发键，禁止 wget/curl|bash）。
 #
 # 用法（仓库根目录）：
 #   bash tests/vm-test/scripts/vm-disk-lab-vdb-e2e.sh
@@ -174,7 +174,7 @@ main() {
 
     tmux send-keys -t "$SESSION" "cd /tmp && export STARMAN_SMOKE_ID=${sid} STARMAN_SMOKE_HTTP_PORT=${PORT} STARMAN_SMOKE_SNAP=${SNAP_NAME} STARMAN_UBUNTU_PASS=${UBUNTU_PASS}" Enter
     sleep 0.2
-    tmux send-keys -t "$SESSION" "curl -fsSL http://${HOST_HTTP}:${PORT}/${GUEST_HTTP_NAME} -o /tmp/${GUEST_HTTP_NAME}" Enter
+    tmux send-keys -t "$SESSION" "wget -qO /tmp/${GUEST_HTTP_NAME} http://${HOST_HTTP}:${PORT}/${GUEST_HTTP_NAME} || curl -fsSL http://${HOST_HTTP}:${PORT}/${GUEST_HTTP_NAME} -o /tmp/${GUEST_HTTP_NAME}" Enter
     sleep 4
     tmux send-keys -t "$SESSION" "chmod +x /tmp/${GUEST_HTTP_NAME}" Enter
     sleep 0.3

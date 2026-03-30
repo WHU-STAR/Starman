@@ -83,6 +83,32 @@ NC='\033[0m' # No Color
 # Helper Functions
 # ============================================================================
 
+# HTTP：优先 wget，回退 curl（与 scripts/lib/common.sh 中 starman_http_* 一致；此处须在下载 common 前可用）
+_starman_install_http_get() {
+    local url="$1"
+    local out="$2"
+    local to="${STARMAN_HTTP_TIMEOUT:-30}"
+    if command -v wget &>/dev/null; then
+        wget -q --timeout="$to" --tries=1 -O "$out" "$url" 2>/dev/null && return 0
+    fi
+    if command -v curl &>/dev/null; then
+        curl -fsSL --connect-timeout "${STARMAN_CURL_CONNECT_TIMEOUT:-5}" --max-time "$to" "$url" -o "$out" 2>/dev/null && return 0
+    fi
+    return 1
+}
+
+_starman_install_http_probe() {
+    local url="$1"
+    local to="${STARMAN_HTTP_TIMEOUT:-15}"
+    if command -v wget &>/dev/null; then
+        wget -q --timeout="$to" --tries=1 -O /dev/null "$url" 2>/dev/null && return 0
+    fi
+    if command -v curl &>/dev/null; then
+        curl -fsSL --connect-timeout "${STARMAN_CURL_CONNECT_TIMEOUT:-5}" --max-time "$to" -o /dev/null "$url" 2>/dev/null && return 0
+    fi
+    return 1
+}
+
 # 获取脚本所在目录（用于 sourcing lib）
 get_script_dir() {
     local source="${BASH_SOURCE[0]}"
@@ -102,7 +128,7 @@ if [ -f "$SCRIPT_DIR/../scripts/lib/tui.sh" ]; then
 else
     # Download from Gitee
     TUI_TMP="/tmp/starman_tui_$$.sh"
-    if curl -fsSL "https://gitee.com/ajgamma/starman/raw/master/scripts/lib/tui.sh" -o "$TUI_TMP"; then
+    if _starman_install_http_get "https://gitee.com/ajgamma/starman/raw/master/scripts/lib/tui.sh" "$TUI_TMP"; then
         source "$TUI_TMP"
         rm -f "$TUI_TMP"
     else
@@ -117,7 +143,7 @@ if [ -f "$SCRIPT_DIR/../scripts/lib/common.sh" ]; then
 else
     # Download from Gitee
     COMMON_TMP="/tmp/starman_common_$$.sh"
-    if curl -fsSL "https://gitee.com/ajgamma/starman/raw/master/scripts/lib/common.sh" -o "$COMMON_TMP"; then
+    if _starman_install_http_get "https://gitee.com/ajgamma/starman/raw/master/scripts/lib/common.sh" "$COMMON_TMP"; then
         source "$COMMON_TMP"
         rm -f "$COMMON_TMP"
     else
@@ -179,7 +205,7 @@ detect_network() {
     GITHUB_AVAILABLE=false
 
     # Test Gitee
-    if curl -fsSL --connect-timeout 5 "https://gitee.com" &>/dev/null; then
+    if _starman_install_http_probe "https://gitee.com"; then
         GITEE_AVAILABLE=true
         log_info "Gitee 可访问"
     else
@@ -211,7 +237,8 @@ check_interactive() {
         echo ""
         echo "  2. 以新用户身份重新执行安装："
         echo "     su - <用户名>"
-        echo "     curl -fsSL <安装URL> -o /tmp/starman-install.sh && bash /tmp/starman-install.sh"
+        echo "     wget -qO /tmp/starman-install.sh <安装URL> && bash /tmp/starman-install.sh"
+        echo "     或: curl -fsSL <安装URL> -o /tmp/starman-install.sh && bash /tmp/starman-install.sh"
         echo ""
         exit 1
     fi
@@ -497,13 +524,13 @@ _download_raw_file() {
     local output="$2"
 
     if [ "$GITEE_AVAILABLE" = true ]; then
-        if curl -fsSL "$GITEE_RAW/$file_path" -o "$output" 2>/dev/null; then
+        if _starman_install_http_get "$GITEE_RAW/$file_path" "$output"; then
             return 0
         fi
     fi
 
     if [ "$GITHUB_AVAILABLE" = true ]; then
-        if curl -fsSL "$GITHUB_RAW/$file_path" -o "$output" 2>/dev/null; then
+        if _starman_install_http_get "$GITHUB_RAW/$file_path" "$output"; then
             return 0
         fi
     fi

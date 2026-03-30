@@ -4,7 +4,7 @@
 #
 # Usage（推荐不用管道，便于交互与审计）:
 #   wget -qO /tmp/bootstrap.sh https://gitee.com/ajgamma/starman/raw/master/installers/bootstrap.sh && bash /tmp/bootstrap.sh
-#   或 curl -fsSL -o /tmp/bootstrap.sh <url> && bash /tmp/bootstrap.sh
+#   或 curl -fsSL -o /tmp/bootstrap.sh <url> && bash /tmp/bootstrap.sh（无 wget 时）
 #
 # This script downloads and executes the main install.sh script
 # from GitHub Releases or Gitee mirror.
@@ -45,14 +45,14 @@ log_warn() {
 # ============================================================================
 
 detect_downloader() {
-    if command -v curl &>/dev/null; then
-        DOWNLOADER="curl"
-        return 0
-    elif command -v wget &>/dev/null; then
+    if command -v wget &>/dev/null; then
         DOWNLOADER="wget"
         return 0
+    elif command -v curl &>/dev/null; then
+        DOWNLOADER="curl"
+        return 0
     else
-        log_error "未找到 curl 或 wget，请先安装其中一个"
+        log_error "未找到 wget 或 curl，请先安装其中一个"
         return 1
     fi
 }
@@ -66,11 +66,11 @@ download_file() {
     local output="$2"
 
     case "$DOWNLOADER" in
-        curl)
-            curl -fsSL "$url" -o "$output"
-            ;;
         wget)
             wget -q --show-progress "$url" -O "$output"
+            ;;
+        curl)
+            curl -fsSL "$url" -o "$output"
             ;;
     esac
 }

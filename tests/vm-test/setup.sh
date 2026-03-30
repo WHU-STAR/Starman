@@ -130,13 +130,19 @@ else
     echo "下载 cloud image（约 300MB）："
     echo "  mkdir -p $IMAGE_DIR"
     echo "  cd $IMAGE_DIR"
-    echo "  curl -L https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img -o ubuntu-cloud.img"
+    echo "  wget -O ubuntu-cloud.img https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
+    echo "  或: curl -L https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img -o ubuntu-cloud.img"
     echo ""
     read -rp "是否现在下载？[y/N] " answer
     case "$answer" in
         [yY]|[yY][eE][sS])
             echo "正在下载..."
-            curl -L "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img" -o "$IMAGE_FILE"
+            if command -v wget &>/dev/null; then
+                wget -q --timeout=300 --tries=3 -O "$IMAGE_FILE" \
+                    "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
+            else
+                curl -L "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img" -o "$IMAGE_FILE"
+            fi
             echo "下载完成"
             ;;
         *)
@@ -186,7 +192,7 @@ echo ""
 echo "下一步："
 echo ""
 echo "1. 如果尚未下载镜像，运行："
-echo "   curl -L https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img -o $IMAGE_FILE"
+echo "   wget -O $IMAGE_FILE https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
 echo ""
 echo "2. 运行测试："
 echo "   $SCRIPT_DIR/scripts/test-harness.sh run-all"

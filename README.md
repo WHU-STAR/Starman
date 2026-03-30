@@ -7,14 +7,12 @@
 下载安装脚本后执行（需要交互式终端，不支持管道模式）：
 
 ```bash
-# Gitee（国内推荐）
-curl -fsSL -o /tmp/bootstrap.sh https://gitee.com/ajgamma/starman/raw/master/installers/bootstrap.sh && bash /tmp/bootstrap.sh
-
-# 或使用 wget
+# Gitee（国内推荐；优先 wget，无 wget 时可用 curl）
 wget -qO /tmp/bootstrap.sh https://gitee.com/ajgamma/starman/raw/master/installers/bootstrap.sh && bash /tmp/bootstrap.sh
+# curl -fsSL -o /tmp/bootstrap.sh https://gitee.com/ajgamma/starman/raw/master/installers/bootstrap.sh && bash /tmp/bootstrap.sh
 
 # GitHub（TODO: 待配置）
-# curl -fsSL -o /tmp/bootstrap.sh https://github.com/ajgamma/starman/raw/main/installers/bootstrap.sh && bash /tmp/bootstrap.sh
+# wget -qO /tmp/bootstrap.sh https://github.com/ajgamma/starman/raw/main/installers/bootstrap.sh && bash /tmp/bootstrap.sh
 ```
 
 ### 离线安装
@@ -62,5 +60,3 @@ values=$(tui_parse_result "$result" "VALUE")
 - 自动化安装常用软件
 - 生成系统级管理员工具
 - **`starman` CLI**（安装至 `/usr/sbin/starman`）：`starman create-user <用户>` 创建账号、协作组、shell 片段与可选 Linuxbrew bundle（需 `sudo`；详见 `crates/starman/README.md`）
-
-详细设计文档请参阅 [开发设计文档](openspec/DEV_FLOW.md)。

@@ -13,8 +13,8 @@
 
 PACKAGES_BASE=(
     git
-    curl
     wget
+    curl
     vim
     tmux
     zsh

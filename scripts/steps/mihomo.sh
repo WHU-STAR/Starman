@@ -8,7 +8,9 @@
 #   STARMAN_SKIP_MIHOMO=1           — 跳过本步骤（退出码 0，会写入装机状态）
 #   STARMAN_GITHUB_PROBE_URL        — GitHub 可达性探测 URL（默认 https://github.com）
 #   STARMAN_MIHOMO_RELEASE_API      — Release API（默认 MetaCubeX/mihomo latest）
-#   STARMAN_CURL_CONNECT_TIMEOUT    — curl 连接超时秒数（默认 5）
+#   STARMAN_CURL_CONNECT_TIMEOUT    — curl 连接超时秒数（默认 5；HTTP 优先 wget）
+#   STARMAN_HTTP_TIMEOUT            — wget/curl 总体超时（秒，见 common.sh）
+#   STARMAN_CURL_MAX_TIME           — Release API / 二进制下载 max-time（默认 40 / 120）
 #
 
 # ============================================================================
@@ -41,17 +43,14 @@ _starman_mihomo_sudo() {
 }
 
 # ============================================================================
-# 网络探测（curl 短超时）
+# 网络探测（优先 wget，见 scripts/lib/common.sh）
 # ============================================================================
 
 # 通用：URL 可 GET（静默成功即视为可达）
 starman_probe_url() {
     local url="$1"
     [ -n "$url" ] || return 1
-    command -v curl &>/dev/null || return 1
-    local c="${STARMAN_CURL_CONNECT_TIMEOUT:-5}"
-    local m="${STARMAN_CURL_MAX_TIME:-25}"
-    curl -fsS --connect-timeout "$c" --max-time "$m" -o /dev/null "$url" 2>/dev/null
+    starman_http_probe "$url"
 }
 
 starman_probe_github() {
@@ -125,21 +124,40 @@ PY
 }
 
 _starman_mihomo_fetch_latest_json() {
-    command -v curl &>/dev/null || return 1
-    local c="${STARMAN_CURL_CONNECT_TIMEOUT:-5}"
-    local m="${STARMAN_CURL_MAX_TIME:-40}"
-    curl -fsS --connect-timeout "$c" --max-time "$m" "${STARMAN_MIHOMO_RELEASE_API}"
+    if ! command -v wget &>/dev/null && ! command -v curl &>/dev/null; then
+        return 1
+    fi
+    local prev="${STARMAN_HTTP_TIMEOUT:-}"
+    STARMAN_HTTP_TIMEOUT="${STARMAN_CURL_MAX_TIME:-40}"
+    starman_http_get_stdout "${STARMAN_MIHOMO_RELEASE_API}"
+    local st=$?
+    if [ -n "$prev" ]; then
+        STARMAN_HTTP_TIMEOUT="$prev"
+    else
+        unset STARMAN_HTTP_TIMEOUT
+    fi
+    return "$st"
 }
 
 _starman_mihomo_install_binary() {
     local tmp
     tmp="$(mktemp)"
-    local c="${STARMAN_CURL_CONNECT_TIMEOUT:-5}"
-    local m="${STARMAN_CURL_MAX_TIME:-120}"
-    if ! curl -fL --connect-timeout "$c" --max-time "$m" -o "$tmp" "$STARMAN_MIHOMO_DOWNLOAD_URL" 2>/dev/null; then
+    local prev="${STARMAN_HTTP_TIMEOUT:-}"
+    STARMAN_HTTP_TIMEOUT="${STARMAN_CURL_MAX_TIME:-120}"
+    if ! starman_http_get "$STARMAN_MIHOMO_DOWNLOAD_URL" "$tmp"; then
         rm -f "$tmp"
+        if [ -n "$prev" ]; then
+            STARMAN_HTTP_TIMEOUT="$prev"
+        else
+            unset STARMAN_HTTP_TIMEOUT
+        fi
         log_error "下载失败：$STARMAN_MIHOMO_DOWNLOAD_URL"
         return 1
+    fi
+    if [ -n "$prev" ]; then
+        STARMAN_HTTP_TIMEOUT="$prev"
+    else
+        unset STARMAN_HTTP_TIMEOUT
     fi
 
     _starman_mihomo_sudo mkdir -p "$(dirname "$STARMAN_MIHOMO_BIN")"

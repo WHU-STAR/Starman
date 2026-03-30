@@ -3,9 +3,9 @@
 # Starman 安装脚本 - 统一入口
 #
 # 用法（须交互式终端，勿使用管道）：
-#   curl -fsSL <url>/install.sh -o /tmp/starman-install.sh && bash /tmp/starman-install.sh
-#   或
-#   git clone <repo> && cd <repo> && bash install.sh
+#   wget -qO /tmp/starman-install.sh <url>/install.sh && bash /tmp/starman-install.sh
+#   或 curl -fsSL <url>/install.sh -o /tmp/starman-install.sh && bash /tmp/starman-install.sh
+#   或 git clone <repo> && cd <repo> && bash install.sh
 #
 
 set -e

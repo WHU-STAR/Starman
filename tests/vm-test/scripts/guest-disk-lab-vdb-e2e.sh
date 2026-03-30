@@ -1,5 +1,5 @@
 #!/bin/bash
-# 在 ubuntu22-test 客体中执行（宿主机 HTTP 提供仓库快照；勿 curl|bash）。
+# 在 ubuntu22-test 客体中执行（宿主机 HTTP 提供仓库快照；勿 wget/curl|bash）。
 # 对附加数据盘跑 run_step_disk_lab 全流程；破坏性：会格式化所选块设备。
 #
 # 环境变量：STARMAN_SMOKE_ID、STARMAN_SMOKE_HTTP_HOST、STARMAN_SMOKE_HTTP_PORT、STARMAN_SMOKE_SNAP
@@ -26,7 +26,11 @@ mkdir -p starman-disk-lab-vdb-e2e
 cd starman-disk-lab-vdb-e2e
 
 local_tgz="/tmp/starman-vdb-e2e-snap.tgz"
-curl -fsSL "http://${HOST}:${PORT}/${SNAP}" -o "$local_tgz"
+if command -v wget &>/dev/null; then
+    wget -q --timeout=120 --tries=1 -O "$local_tgz" "http://${HOST}:${PORT}/${SNAP}"
+else
+    curl -fsSL "http://${HOST}:${PORT}/${SNAP}" -o "$local_tgz"
+fi
 tar xzf "$local_tgz"
 
 ROOT="$(pwd)"

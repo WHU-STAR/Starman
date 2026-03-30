@@ -1,9 +1,9 @@
 #!/bin/bash
-# 在测试虚拟机内执行：勿使用 curl|bash 管道；由宿主机 tmux 下发
-#   curl -fsSL … -o /tmp/guest-disk-lab-smoke.sh && chmod +x … && bash /tmp/guest-disk-lab-smoke.sh
+# 在测试虚拟机内执行：勿使用 wget/curl|bash 管道；由宿主机 tmux 下发
+#   wget -qO /tmp/...（优先）或 curl -fsSL -o /tmp/... && chmod +x … && bash …
 # 以保证 bash 挂在交互式终端上（见 starman-vm-tmux-test）。
 #
-# 拉取仓库快照（curl -o + tar）、语法检查、在 TTY 下跑 run_step_disk_lab（默认「跳过」需一次 Enter，由宿主机发键）；
+# 拉取仓库快照（wget/curl -o + tar）、语法检查、在 TTY 下跑 run_step_disk_lab（默认「跳过」需一次 Enter，由宿主机发键）；
 # 最后打印唯一结束标记。
 set -uo pipefail
 
@@ -36,7 +36,11 @@ mkdir -p starman-disk-lab-smoke
 cd starman-disk-lab-smoke
 
 local_tgz="/tmp/starman-disk-lab-snapshot.tgz"
-curl -fsSL "http://${HOST}:${PORT}/${SNAP}" -o "$local_tgz"
+if command -v wget &>/dev/null; then
+    wget -q --timeout=120 --tries=1 -O "$local_tgz" "http://${HOST}:${PORT}/${SNAP}"
+else
+    curl -fsSL "http://${HOST}:${PORT}/${SNAP}" -o "$local_tgz"
+fi
 tar xzf "$local_tgz"
 
 ROOT="$(pwd)"

@@ -13,7 +13,7 @@
 #   - 备选：将 /home/linuxbrew/.linuxbrew 整树复制到目标用户 ~/.linuxbrew 后 chown；因 Cellar
 #     内可能存在绝对路径，须在目标环境实测后再依赖此方式。
 #
-# 依赖：curl、git、sudo；建议先完成 scripts/steps/packages.sh
+# 依赖：git、sudo；HTTP 下载优先 wget、回退 curl；建议先完成 scripts/steps/packages.sh
 #
 # 国内镜像（清华 TUNA）：若无法访问 GitHub，自动改用镜像安装与 bottles。
 #   https://mirrors.tuna.tsinghua.edu.cn/help/homebrew/
@@ -65,9 +65,10 @@ _STARMAN_BREW_MIRROR_MODE=""
 
 # 以能否拉取官方 install.sh 作为「可走 GitHub 安装链」的判据
 _starman_brew_github_install_reachable() {
-    command -v curl &>/dev/null || return 1
-    curl -fsS --connect-timeout 5 --max-time 20 -o /dev/null \
-        https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh 2>/dev/null
+    if ! command -v wget &>/dev/null && ! command -v curl &>/dev/null; then
+        return 1
+    fi
+    starman_http_probe "https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh"
 }
 
 _starman_brew_select_mirror_mode() {
@@ -219,15 +220,33 @@ rm -rf brew-install-starman
             return 1
         }
     else
-        if ! command -v curl &>/dev/null; then
-            log_error "需要 curl 以下载 Homebrew 安装脚本"
+        if ! command -v wget &>/dev/null && ! command -v curl &>/dev/null; then
+            log_error "需要 wget 或 curl 以下载 Homebrew 安装脚本"
             return 1
         fi
+        local _hb_inst
+        _hb_inst="$(mktemp)"
+        local _hb_url="https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh"
         log_info "下载并执行 Homebrew 官方安装脚本（NONINTERACTIVE）…"
-        _starman_brew_run_as_template 'NONINTERACTIVE=1 CI=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"' || {
+        if command -v wget &>/dev/null; then
+            wget -q --timeout="${STARMAN_HTTP_TIMEOUT:-30}" --tries=1 -O "$_hb_inst" "$_hb_url" 2>/dev/null || {
+                rm -f "$_hb_inst"
+                log_error "wget 下载 Homebrew 安装脚本失败"
+                return 1
+            }
+        else
+            curl -fsSL --connect-timeout "${STARMAN_CURL_CONNECT_TIMEOUT:-5}" --max-time "${STARMAN_HTTP_TIMEOUT:-30}" -o "$_hb_inst" "$_hb_url" 2>/dev/null || {
+                rm -f "$_hb_inst"
+                log_error "curl 下载 Homebrew 安装脚本失败"
+                return 1
+            }
+        fi
+        _starman_brew_run_as_template "NONINTERACTIVE=1 CI=1 /bin/bash '$_hb_inst'" || {
+            rm -f "$_hb_inst"
             log_error "Homebrew 安装脚本失败"
             return 1
         }
+        rm -f "$_hb_inst"
     fi
 
     if [ ! -x "${STARMAN_LINUXBREW_PREFIX}/bin/brew" ]; then

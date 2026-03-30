@@ -1,13 +1,13 @@
 #!/bin/bash
 #
 # 在三台 libvirt 测试虚拟机（tmux：vm-ubuntu / vm-fedora / vm-centos）上
-# 验证 install-script-disk-lab：交互式终端（禁止 curl|bash 管道），见 starman-vm-tmux-test。
+# 验证 install-script-disk-lab：交互式终端（禁止 wget/curl|bash 管道），见 starman-vm-tmux-test。
 #
 # 用法：在仓库根目录执行
 #   bash tests/vm-test/scripts/vm-disk-lab-smoke.sh
 #
 # 依赖：宿主机 virbr0=192.168.122.1；虚拟机可访问该地址；tmux 会话 vm-* 已 attach 串口。
-# 流程：curl -o 脚本 → chmod → bash /tmp/...；轮询屏显「数据盘与 lab」后发 Enter 确认默认「跳过」；
+# 流程：wget/curl -o 脚本 → chmod → bash /tmp/...；轮询屏显「数据盘与 lab」后发 Enter 确认默认「跳过」；
 #       不进行磁盘格式化。
 #
 
@@ -96,7 +96,7 @@ run_one() {
 
     tmux send-keys -t "$session" "cd /tmp && export STARMAN_SMOKE_ID=${sid}" Enter
     sleep 0.2
-    tmux send-keys -t "$session" "curl -fsSL http://${HOST_HTTP}:${PORT}/guest-disk-lab-smoke.sh -o /tmp/guest-disk-lab-smoke.sh" Enter
+    tmux send-keys -t "$session" "wget -qO /tmp/guest-disk-lab-smoke.sh http://${HOST_HTTP}:${PORT}/guest-disk-lab-smoke.sh || curl -fsSL http://${HOST_HTTP}:${PORT}/guest-disk-lab-smoke.sh -o /tmp/guest-disk-lab-smoke.sh" Enter
     sleep 3
     tmux send-keys -t "$session" "chmod +x /tmp/guest-disk-lab-smoke.sh" Enter
     sleep 0.3

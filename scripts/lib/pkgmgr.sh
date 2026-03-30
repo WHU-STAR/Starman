@@ -13,7 +13,7 @@
 #   echo "检测到包管理器：$PKGMGR"
 #
 #   # 安装软件包
-#   pkgmgr_install git curl
+#   pkgmgr_install git wget curl
 #
 #   # 检查是否已安装
 #   if pkgmgr_is_installed docker; then
@@ -21,7 +21,7 @@
 #   fi
 #
 #   # 版本检查与 fallback
-#   pkgmgr_ensure_min neovim "0.5.0" "curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz"
+#   pkgmgr_ensure_min neovim "0.5.0" "wget -O nvim-linux64.tar.gz <release-url> || curl -LO <url>"
 #
 # 依赖：无（纯 Bash + 基础命令）
 #
@@ -326,7 +326,15 @@ pkgmgr_install_neovim() {
 
             if ! pkgmgr_version_compare "${installed_version:-0}" "$min_version"; then
                 echo "执行 neovim GitHub Release fallback" >&2
-                curl -LO "https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz"
+                if command -v wget &>/dev/null; then
+                    wget -q --timeout=120 --tries=1 -O nvim-linux64.tar.gz \
+                        "https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz" \
+                        || curl -fL --connect-timeout 5 --max-time 120 -O \
+                            "https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz"
+                else
+                    curl -fL --connect-timeout 5 --max-time 120 -O \
+                        "https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz"
+                fi
                 tar -xzf nvim-linux64.tar.gz
                 mv nvim-linux64 /opt/nvim
                 ln -sf /opt/nvim/bin/nvim /usr/local/bin/nvim

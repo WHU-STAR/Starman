@@ -14,6 +14,7 @@
 #   require_non_root - 检测必须以非 root 用户运行
 #   require_sudo     - 检测当前用户是否有 sudo 权限
 #   detect_os        - 检测操作系统类型
+#   starman_http_get / starman_http_probe / starman_http_get_stdout — HTTP（wget 优先）
 #   ui_banner_starman  - 打印横幅标题
 #   ui_step    - 打印步骤标题
 #   ui_ok      - 打印成功标记
@@ -124,7 +125,7 @@ require_sudo() {
 }
 
 # 必须在交互式终端运行（stdin/stdout 均为 TTY），以便 TUI、sudo 与 ssh 等步骤正常工作。
-# 禁止使用「curl … | bash」等管道方式执行安装入口（bash 无控制终端时会进入非交互路径）。
+# 禁止使用「wget/curl … | bash」等管道方式执行安装入口（bash 无控制终端时会进入非交互路径）。
 # 自动化/CI 请使用 tmux、script(1) 等分配伪终端，例如：script -q -c "bash install.sh" /dev/null
 require_interactive_terminal() {
     if [ ! -t 0 ] || [ ! -t 1 ]; then
@@ -133,6 +134,54 @@ require_interactive_terminal() {
         echo "  script -q -c \"bash install.sh\" /dev/null" >&2
         exit 1
     fi
+}
+
+# ============================================================================
+# HTTP 下载（优先 wget，回退 curl；部分最小环境未预装 curl）
+# 环境变量：STARMAN_HTTP_TIMEOUT（秒，默认 30 / 探测 15 / 大文件 40）
+#          STARMAN_CURL_CONNECT_TIMEOUT（curl 连接超时，默认 5）
+# ============================================================================
+
+# 下载 URL 到文件。成功返回 0。
+starman_http_get() {
+    local url="$1"
+    local out="$2"
+    local to="${STARMAN_HTTP_TIMEOUT:-30}"
+    if command -v wget &>/dev/null; then
+        wget -q --timeout="$to" --tries=1 -O "$out" "$url" 2>/dev/null && return 0
+    fi
+    if command -v curl &>/dev/null; then
+        curl -fsSL --connect-timeout "${STARMAN_CURL_CONNECT_TIMEOUT:-5}" --max-time "$to" "$url" -o "$out" 2>/dev/null && return 0
+    fi
+    return 1
+}
+
+# 探测 URL 是否可访问（静默 GET 到 /dev/null）。
+starman_http_probe() {
+    local url="$1"
+    local to="${STARMAN_HTTP_TIMEOUT:-15}"
+    if command -v wget &>/dev/null; then
+        wget -q --timeout="$to" --tries=1 -O /dev/null "$url" 2>/dev/null && return 0
+    fi
+    if command -v curl &>/dev/null; then
+        curl -fsSL --connect-timeout "${STARMAN_CURL_CONNECT_TIMEOUT:-5}" --max-time "$to" -o /dev/null "$url" 2>/dev/null && return 0
+    fi
+    return 1
+}
+
+# 将 URL 内容输出到 stdout（如 JSON API）。失败无输出或部分输出，调用方应检查退出码。
+starman_http_get_stdout() {
+    local url="$1"
+    local to="${STARMAN_HTTP_TIMEOUT:-40}"
+    if command -v wget &>/dev/null; then
+        wget -q --timeout="$to" --tries=1 -O - "$url" 2>/dev/null
+        return $?
+    fi
+    if command -v curl &>/dev/null; then
+        curl -fsSL --connect-timeout "${STARMAN_CURL_CONNECT_TIMEOUT:-5}" --max-time "$to" "$url" 2>/dev/null
+        return $?
+    fi
+    return 1
 }
 
 # 检测操作系统类型
