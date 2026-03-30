@@ -21,7 +21,7 @@
 #   fi
 #
 #   # 版本检查与 fallback
-#   pkgmgr_ensure_min neovim "0.5.0" "wget -O nvim-linux64.tar.gz <release-url> || curl -LO <url>"
+#   pkgmgr_install_neovim — 官网预编译包 → /opt/nvim-linux-* + /usr/local/bin/nvim
 #
 # 依赖：无（纯 Bash + 基础命令）
 #
@@ -181,6 +181,10 @@ pkgmgr_map_name() {
         yum:openssh-client|dnf:openssh-client)
             echo "openssh-clients"
             ;;
+        apt:vim)
+            # GTK3 图形版（含 gvim；/usr/bin/vim 亦为该构建，见 Debian/Ubuntu 包说明）
+            echo "vim-gtk3"
+            ;;
         *)
             echo "$pkg"
             ;;
@@ -306,43 +310,59 @@ pkgmgr_ensure_min() {
     fi
 }
 
-# neovim 专用 fallback（PPA → GitHub Release）
-# 用法：pkgmgr_install_neovim <min-version>
+# neovim：按官网推荐，从 GitHub Release 下载预编译包解压到 /opt，并符号链接到 /usr/local/bin/nvim
+#（无需改 PATH；与 https://github.com/neovim/neovim/blob/master/INSTALL.md 中 Linux 预编译包一致）
+# 架构：x86_64 → nvim-linux-x86_64.tar.gz，aarch64/arm64 → nvim-linux-arm64.tar.gz
+# 可选参数 $1 保留兼容（历史 min_version），已忽略。
 pkgmgr_install_neovim() {
-    local min_version="${1:-0.5.0}"
-
-    case "$PKGMGR" in
-        apt)
-            # 尝试 PPA
-            if command -v add-apt-repository &>/dev/null; then
-                add-apt-repository -y ppa:neovim-ppa/stable 2>/dev/null || true
-                apt-get update
-            fi
-            pkgmgr_install neovim
-
-            # 检查版本，不足则 fallback
-            local installed_version
-            installed_version=$(pkgmgr_get_version neovim)
-
-            if ! pkgmgr_version_compare "${installed_version:-0}" "$min_version"; then
-                echo "执行 neovim GitHub Release fallback" >&2
-                if command -v wget &>/dev/null; then
-                    wget -q --timeout=120 --tries=1 -O nvim-linux64.tar.gz \
-                        "https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz" \
-                        || curl -fL --connect-timeout 5 --max-time 120 -O \
-                            "https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz"
-                else
-                    curl -fL --connect-timeout 5 --max-time 120 -O \
-                        "https://github.com/neovim/neovim/releases/latest/download/nvim-linux64.tar.gz"
-                fi
-                tar -xzf nvim-linux64.tar.gz
-                mv nvim-linux64 /opt/nvim
-                ln -sf /opt/nvim/bin/nvim /usr/local/bin/nvim
-            fi
+    local opt_name url tgz
+    case "$(uname -m)" in
+        x86_64)
+            opt_name="nvim-linux-x86_64"
+            ;;
+        aarch64 | arm64)
+            opt_name="nvim-linux-arm64"
             ;;
         *)
-            # 其他发行版直接使用包管理器
-            pkgmgr_install neovim
+            echo "ERROR: neovim 官方 Linux 包不支持架构 $(uname -m)（仅 x86_64 / aarch64）" >&2
+            return 1
             ;;
     esac
+
+    url="https://github.com/neovim/neovim/releases/latest/download/${opt_name}.tar.gz"
+    tgz="$(mktemp)"
+    trap 'rm -f "$tgz"' RETURN
+
+    echo "下载 neovim 官方预编译包：${opt_name}.tar.gz" >&2
+    if command -v wget &>/dev/null; then
+        wget -q --timeout=180 --tries=1 -O "$tgz" "$url" || {
+            echo "ERROR: wget 下载失败：$url" >&2
+            return 1
+        }
+    else
+        curl -fL --connect-timeout 10 --max-time 180 -o "$tgz" "$url" || {
+            echo "ERROR: curl 下载失败：$url" >&2
+            return 1
+        }
+    fi
+
+    local opt_dir="/opt/${opt_name}"
+    local nvim_bin="${opt_dir}/bin/nvim"
+
+    if [ "$(id -u)" -eq 0 ]; then
+        rm -rf "$opt_dir"
+        tar -C /opt -xzf "$tgz"
+        ln -sf "$nvim_bin" /usr/local/bin/nvim
+    else
+        sudo rm -rf "$opt_dir"
+        sudo tar -C /opt -xzf "$tgz"
+        sudo ln -sf "$nvim_bin" /usr/local/bin/nvim
+    fi
+
+    if ! command -v nvim &>/dev/null; then
+        echo "ERROR: neovim 安装后未在 PATH 中找到 nvim（请确认 /usr/local/bin 已加入 PATH）" >&2
+        return 1
+    fi
+    echo "neovim 已安装：$(command -v nvim) -> $nvim_bin" >&2
+    return 0
 }

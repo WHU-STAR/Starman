@@ -15,6 +15,9 @@ wget -qO /tmp/bootstrap.sh https://gitee.com/ajgamma/starman/raw/master/installe
 # wget -qO /tmp/bootstrap.sh https://github.com/ajgamma/starman/raw/main/installers/bootstrap.sh && bash /tmp/bootstrap.sh
 ```
 
+**说明**：请用 **`bash /tmp/bootstrap.sh` 显式解释执行**，一般**不需要** `chmod +x`。若 `./bootstrap.sh` 提示权限不够，是因为未加执行位；若 **`chmod` 也报「不允许的操作」**，多为 `/tmp` 所在挂载策略或非本人文件——改放到家目录即可：  
+`wget -qO "$HOME/bootstrap.sh" '<同上 URL>' && bash "$HOME/bootstrap.sh"`。
+
 ### 离线安装
 
 无法访问互联网的设备，请参考 [离线安装指引](docs/OFFLINE_INSTALL.md)。

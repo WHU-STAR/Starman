@@ -15,7 +15,7 @@ PACKAGES_BASE=(
     git
     wget
     curl
-    vim
+    vim # apt 系映射为 vim-gtk3（见 pkgmgr_map_name）
     tmux
     zsh
     ca-certificates
@@ -41,6 +41,7 @@ PACKAGES_OPT_DEFAULT_ON=(
 )
 
 # 默认可选：默认不勾选（重包或开发向、或服务类需自行配置）
+# neovim：不通过发行版包名安装，见 _pkgmgr_install_one_mapped 中走 pkgmgr_install_neovim（官网 /opt 预编译包 + /usr/local/bin/nvim）
 PACKAGES_OPT_DEFAULT_OFF=(
     docker
     neovim
@@ -187,6 +188,16 @@ _pkgmgr_install_one_mapped() {
                 return $?
                 ;;
         esac
+    fi
+
+    if [ "$canonical" = "neovim" ]; then
+        if command -v nvim &>/dev/null; then
+            log_info "已安装：nvim（$(nvim --version 2>/dev/null | head -n 1 | tr -d '\r')）"
+            return 0
+        fi
+        log_info "安装：neovim（官网 Linux 预编译包 → /opt + /usr/local/bin/nvim）"
+        pkgmgr_install_neovim || return 1
+        return 0
     fi
 
     if pkgmgr_is_installed "$mapped"; then

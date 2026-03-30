@@ -162,6 +162,8 @@ starman_install_flow_prompt() {
 
 # 包装：续跑模式下跳过已完成步骤
 # 子步骤返回 0：视为完成并写入状态；返回 3：用户跳过/不写入状态；其它：失败
+# 注意：install.sh 使用 set -e；若此处直接 "$@" 且步骤返回 3，会在捕获 rc 之前触发 errexit 并整脚本退出。
+# 故先用 set +e 执行步骤，再恢复 -e。
 starman_run_step_maybe_skip() {
     local step_name="$1"
     shift
@@ -169,8 +171,10 @@ starman_run_step_maybe_skip() {
         log_info "续跑：跳过已完成步骤「${step_name}」"
         return 0
     fi
+    set +e
     "$@"
     local rc=$?
+    set -e
     if [ "$rc" -eq 3 ]; then
         return 0
     fi
